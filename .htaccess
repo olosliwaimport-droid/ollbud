@@ -1,0 +1,4 @@
+Options -Multiviews
+PassengerEnabled on
+PassengerAppRoot /home/USER/domains/ollbud.pl/public_html/oferta-ai
+PassengerPython /home/USER/domains/ollbud.pl/public_html/oferta-ai/venv/bin/python3

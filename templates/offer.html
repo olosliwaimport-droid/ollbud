@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pl">
+
+<head>
+    <meta charset="utf-8">
+    <title>Oferta OLLBUD</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12pt;
+            color: #111;
+        }
+
+        h1 {
+            font-size: 20pt;
+            margin-bottom: 0;
+        }
+
+        .muted {
+            color: #666;
+        }
+
+        .box {
+            border: 1px solid #ddd;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 12px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        td,
+        th {
+            border: 1px solid #eee;
+            padding: 6px 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Oferta – OLLBUD</h1>
+    <div class="muted">Wygenerowano: {{ generated_at.strftime('%Y-%m-%d %H:%M') }}</div>
+
+
+    <div class="box">
+        <strong>Zakres:</strong> {{ summary.scope }}<br>
+        <strong>Metraż:</strong> {{ summary.area_m2 }} m²<br>
+        <strong>Standard:</strong> {{ summary.standard }}<br>
+        <strong>Lokalizacja:</strong> {{ summary.location }}<br>
+        <strong>Termin:</strong> {{ summary.deadline or '—' }}
+    </div>
+
+
+    <h3>Podsumowanie kosztów</h3>
+    <table>
+        <tr>
+            <th>Pozycja</th>
+            <th>Wartość</th>
+        </tr>
+        <tr>
+            <td>Robocizna + kalkulacja</td>
+            <td>{{ pricing.subtotal }} {{ pricing.currency }}</td>
+        </tr>
+        <tr>
+            <td>Bufor (nieprzewidziane)</td>
+            <td>{{ pricing.buffer }} {{ pricing.currency }}</td>
+        </tr>
+        <tr>
+            <td><strong>Suma</strong></td>
+            <td><strong>{{ pricing.total }} {{ pricing.currency }}</strong></td>
+        </tr>
+    </table>
+
+
+    <p class="muted">Uwaga: wycena orientacyjna – finalna oferta po wizji lokalnej. Ceny nie obejmują materiałów
+        specjalistycznych, zmian projektowych i prac dodatkowych niewymienionych w zakresie.</p>
+</body>
+
+</html>
