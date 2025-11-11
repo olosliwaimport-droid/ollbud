@@ -3,10 +3,13 @@ import os
 
 def estimate_offer(area_m2, standard):
     """Oblicza szacunkową wycenę na podstawie KNR lub widełek."""
+
     knr_path = os.path.join("data", "knr.xlsx")
-    robocizna_min = 900
-    robocizna_mid = 1000
-    robocizna_high = 1200
+
+    # --- Stawki bazowe robocizny ---
+    robocizna_min = 900     # deweloperski
+    robocizna_mid = 1000    # blok
+    robocizna_high = 1200   # kamienica
 
     # --- Wybór stawek wg standardu ---
     if standard.lower() == "deweloperski":
@@ -18,9 +21,9 @@ def estimate_offer(area_m2, standard):
 
     robocizna = base_rate * area_m2
 
-    # --- Widełki materiałowe ---
-    mat_min = robocizna * 0.6
-    mat_max = robocizna * 1.5
+    # --- Widełki materiałowe (w górę, nie w dół) ---
+    mat_min = robocizna * 1.0  # 100%
+    mat_max = robocizna * 1.5  # 150%
 
     # --- Narzut ---
     narzut = 1.425
@@ -30,10 +33,10 @@ def estimate_offer(area_m2, standard):
     # --- VAT ---
     vat = "8%" if area_m2 <= 150 else "23%"
 
-    # --- Jeśli plik KNR istnieje, wczytaj dane (na przyszłość) ---
+    # --- Jeśli plik KNR istnieje (na przyszłość) ---
     if os.path.exists(knr_path):
         try:
-            df = pd.read_excel(knr_path)
+            pd.read_excel(knr_path)
         except Exception as e:
             print(f"Błąd odczytu KNR: {e}")
 
