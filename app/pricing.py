@@ -22,7 +22,7 @@ def estimate_offer(area_m2: float, standard: str):
     labor_max *= 1.425
 
     # --- materiały ---
-    materials_min = labor_min * 0.6 * 1.425
+    materials_min = labor_min * 0.3 * 1.425
     materials_max = labor_min * 1.5 * 1.425
 
     # --- suma ---
