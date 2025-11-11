@@ -1,25 +1,21 @@
 def estimate_offer(area_m2: float, standard: str):
     """
     Szacuje koszt robót dla danego metrażu i standardu.
-    Zasady:
-    - robocizna bazowa zależna od typu (blok, kamienica, deweloperski)
-    - narzut 42.5%
-    - materiały = 60–150% wartości robocizny
-    - robocizna widełki +35%
-    - VAT 8% dla mieszkań ≤150 m² i domów ≤300 m², inaczej 23%
     """
 
-    # --- stawki bazowe (robocizna netto, bez narzutów) ---
+    # --- stawki bazowe ---
     if standard.lower() == "kamienica":
         base_rate = 1200
     elif standard.lower() == "deweloperski":
         base_rate = 900
+    elif standard.lower() == "dom":
+        base_rate = 1000
     else:
-        base_rate = 1000  # blok lub inne
+        base_rate = 1000
 
     # --- robocizna ---
     labor_min = area_m2 * base_rate
-    labor_max = labor_min * 1.35  # widełki w górę
+    labor_max = labor_min * 1.35
 
     # --- narzut 42.5% ---
     labor_min *= 1.425
@@ -33,15 +29,14 @@ def estimate_offer(area_m2: float, standard: str):
     total_min = labor_min + materials_min
     total_max = labor_max + materials_max
 
-# --- VAT (mieszkanie ≤150 m², dom ≤300 m²) ---
-std = standard.lower()
-if std == "dom":
-    vat_rate = "8%" if area_m2 <= 300 else "23%"
-else:
-    # blok / kamienica / deweloperski (mieszkania)
-    vat_rate = "8%" if area_m2 <= 150 else "23%"
+    # --- VAT ---
+    std = standard.lower()
+    if std == "dom":
+        vat_rate = "8%" if area_m2 <= 300 else "23%"
+    else:
+        vat_rate = "8%" if area_m2 <= 150 else "23%"
 
-
+    # --- wynik ---
     return {
         "powierzchnia_m2": area_m2,
         "standard": standard,
