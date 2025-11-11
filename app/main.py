@@ -1,48 +1,43 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from app.pricing import estimate_offer
 
-app = FastAPI(
-    title="OLLBUD API",
-    description="Backend do szacowania kosztów robót budowlanych i wykończeniowych.",
-    version="1.0.0"
-)
+app = FastAPI()
 
-# --- CORS (do połączenia z frontendem) ---
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # można zawęzić np. ["https://ollbud.pl"]
+    allow_origins=["*"],  # docelowo możesz zawęzić do ["https://ollbud.pl"]
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Testowy endpoint ---
+# --- MODEL DANYCH ---
+class OfferRequest(BaseModel):
+    area_m2: float
+    standard: str
+
+
+# --- ENDPOINTY ---
 @app.get("/api/ping")
 def ping():
     return {"ok": True}
 
-# --- Strona główna API ---
+
+@app.post("/api/offer/estimate")
+def offer_estimate(data: OfferRequest):
+    try:
+        result = estimate_offer(data.area_m2, data.standard)
+        return result
+    except Exception as e:
+        import traceback
+        print("=== BŁĄD W ESTIMATE ===")
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
 @app.get("/")
 def root():
     return {"status": "OK", "service": "OLLBUD backend"}
-
-# --- Główny endpoint do wyceny ---
-@app.post("/api/offer/estimate", tags=["offer"])
-async def estimate(request: Request):
-    """
-    Szacuje koszt na podstawie powierzchni i standardu.
-    
-    **Body (JSON)**:
-    ```
-    {
-        "area_m2": 45,
-        "standard": "blok"
-    }
-    ```
-    """
-    data = await request.json()
-    area_m2 = data.get("area_m2", 0)
-    standard = data.get("standard", "standard")
-    result = estimate_offer(area_m2, standard)
-    return result
