@@ -33,13 +33,14 @@ def estimate_offer(area_m2: float, standard: str):
     total_min = labor_min + materials_min
     total_max = labor_max + materials_max
 
-    # --- VAT ---
-    if area_m2 <= 150:
-        vat_rate = "8%"
-    elif area_m2 <= 300:
-        vat_rate = "8%"
-    else:
-        vat_rate = "23%"
+# --- VAT (mieszkanie ≤150 m², dom ≤300 m²) ---
+std = standard.lower()
+if std == "dom":
+    vat_rate = "8%" if area_m2 <= 300 else "23%"
+else:
+    # blok / kamienica / deweloperski (mieszkania)
+    vat_rate = "8%" if area_m2 <= 150 else "23%"
+
 
     return {
         "powierzchnia_m2": area_m2,
