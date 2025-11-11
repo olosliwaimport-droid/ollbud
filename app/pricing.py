@@ -1,52 +1,54 @@
-import pandas as pd
-import os
+def estimate_offer(area_m2: float, standard: str):
+    """
+    Szacuje koszt robót dla danego metrażu i standardu.
+    Zasady:
+    - robocizna bazowa zależna od typu (blok, kamienica, deweloperski)
+    - narzut 42.5%
+    - materiały = 60–150% wartości robocizny
+    - robocizna widełki +35%
+    - VAT 8% dla mieszkań ≤150 m² i domów ≤300 m², inaczej 23%
+    """
 
-def estimate_offer(area_m2, standard):
-    """Oblicza szacunkową wycenę na podstawie KNR lub widełek."""
-
-    knr_path = os.path.join("data", "knr.xlsx")
-
-    # --- Stawki bazowe robocizny ---
-    robocizna_min = 900     # deweloperski
-    robocizna_mid = 1000    # blok
-    robocizna_high = 1200   # kamienica
-
-    # --- Wybór stawek wg standardu ---
-    if standard.lower() == "deweloperski":
-        base_rate = robocizna_min
-    elif standard.lower() == "kamienica":
-        base_rate = robocizna_high
+    # --- stawki bazowe (robocizna netto, bez narzutów) ---
+    if standard.lower() == "kamienica":
+        base_rate = 1200
+    elif standard.lower() == "deweloperski":
+        base_rate = 900
     else:
-        base_rate = robocizna_mid
+        base_rate = 1000  # blok lub inne
 
-    robocizna = base_rate * area_m2
+    # --- robocizna ---
+    labor_min = area_m2 * base_rate
+    labor_max = labor_min * 1.35  # widełki w górę
 
-    # --- Widełki materiałowe (w górę, nie w dół) ---
-    mat_min = robocizna * 1.0  # 100%
-    mat_max = robocizna * 1.5  # 150%
+    # --- narzut 42.5% ---
+    labor_min *= 1.425
+    labor_max *= 1.425
 
-    # --- Narzut ---
-    narzut = 1.425
-    total_min = (robocizna + mat_min) * narzut
-    total_max = (robocizna + mat_max) * narzut
+    # --- materiały ---
+    materials_min = labor_min * 0.6 * 1.425
+    materials_max = labor_min * 1.5 * 1.425
+
+    # --- suma ---
+    total_min = labor_min + materials_min
+    total_max = labor_max + materials_max
 
     # --- VAT ---
-    vat = "8%" if area_m2 <= 150 else "23%"
-
-    # --- Jeśli plik KNR istnieje (na przyszłość) ---
-    if os.path.exists(knr_path):
-        try:
-            pd.read_excel(knr_path)
-        except Exception as e:
-            print(f"Błąd odczytu KNR: {e}")
+    if area_m2 <= 150:
+        vat_rate = "8%"
+    elif area_m2 <= 300:
+        vat_rate = "8%"
+    else:
+        vat_rate = "23%"
 
     return {
         "powierzchnia_m2": area_m2,
         "standard": standard,
-        "robocizna": round(robocizna),
-        "materiały_od": round(mat_min),
-        "materiały_do": round(mat_max),
-        "suma_od": round(total_min),
-        "suma_do": round(total_max),
-        "stawka_VAT": vat
+        "robocizna_od": round(labor_min, 2),
+        "robocizna_do": round(labor_max, 2),
+        "materiały_od": round(materials_min, 2),
+        "materiały_do": round(materials_max, 2),
+        "suma_od": round(total_min, 2),
+        "suma_do": round(total_max, 2),
+        "stawka_VAT": vat_rate
     }
