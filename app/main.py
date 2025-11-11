@@ -5,7 +5,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # docelowo możesz zawęzić do ["https://ollbud.pl"]
+    allow_origins=["https://ollbud.pl"],  # docelowo możesz zawęzić do ["https://ollbud.pl"]
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
