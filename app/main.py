@@ -41,3 +41,21 @@ def offer_estimate(data: OfferRequest):
 @app.get("/")
 def root():
     return {"status": "OK", "service": "OLLBUD backend"}
+
+# app/main.py (DODATKOWA CZĘŚĆ)
+
+from pydantic import BaseModel
+from typing import List
+from app.chat_agent import run_chat_agent, ChatTurn
+
+class ChatPayload(BaseModel):
+    # prosto: wysyłamy całą krótką historię (frontend ją trzyma)
+    history: List[ChatTurn]
+
+@app.post("/api/chat", tags=["chat"])
+def api_chat(payload: ChatPayload):
+    """
+    Odpowiada agent GPT. Gdy ma komplet danych, sam wywoła estimate_offer.
+    """
+    out = run_chat_agent(payload.history)
+    return out
