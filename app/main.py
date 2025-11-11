@@ -2,12 +2,16 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.pricing import estimate_offer
 
-app = FastAPI()
+app = FastAPI(
+    title="OLLBUD API",
+    description="Backend do szacowania kosztów robót budowlanych i wykończeniowych.",
+    version="1.0.0"
+)
 
-# --- Konfiguracja CORS ---
+# --- CORS (do połączenia z frontendem) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # docelowo możesz ograniczyć do ["https://ollbud.pl"]
+    allow_origins=["*"],  # można zawęzić np. ["https://ollbud.pl"]
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,16 +27,19 @@ def ping():
 def root():
     return {"status": "OK", "service": "OLLBUD backend"}
 
-# --- Główny endpoint do wycen ---
-@app.post("/api/offer/estimate")
+# --- Główny endpoint do wyceny ---
+@app.post("/api/offer/estimate", tags=["offer"])
 async def estimate(request: Request):
     """
-    Przyjmuje dane w formacie JSON:
+    Szacuje koszt na podstawie powierzchni i standardu.
+    
+    **Body (JSON)**:
+    ```
     {
-        "area_m2": liczba,
-        "standard": "standard" | "deweloperski" | "kamienica"
+        "area_m2": 45,
+        "standard": "blok"
     }
-    Zwraca: szacunkową wycenę z przedziałami kosztów.
+    ```
     """
     data = await request.json()
     area_m2 = data.get("area_m2", 0)
