@@ -1,3 +1,6 @@
+uvicorn
+fastapi
+
 from fastapi import FastAPI, Depends, HTTPException, status
 reset_at=reset_at_midnight_iso(),
 )
