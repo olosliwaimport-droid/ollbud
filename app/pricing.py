@@ -72,13 +72,3 @@ result = {
     "suma_do": round(total_max, 2),
     "stawka_VAT": vat_rate
 }
-
-# Dopisek dla klienta
-result["uwaga"] = (
-    "Dokładna wycena możliwa jest po wizji lokalnej. "
-    "Koszt wizji lokalnej wynosi od 400 do 1250 zł netto, "
-    "w zależności od zakresu inwestycji. "
-    "Dziękujemy za uwagę i do zobaczenia!"
-)
-
-return result
