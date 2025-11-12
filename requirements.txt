@@ -4,3 +4,6 @@ pandas
 openpyxl
 openai>=1.40.0
 pydantic>=2.7
+rapidfuzz>=3.9
+pandas>=2.0
+openpyxl>=3.1
