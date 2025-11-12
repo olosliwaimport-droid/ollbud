@@ -87,12 +87,23 @@ def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
                     },
                 ]
 
-                followup = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=messages,
-                    temperature=0.3
-                )
-                return {"reply": followup.choices[0].message.content, "raw": result}
+followup = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=messages,
+    temperature=0.3
+)
+
+reply_text = followup.choices[0].message.content.strip()
+
+# Dopisz informację końcową o wizji lokalnej
+reply_text += (
+    "\n\n📍 *Dokładna wycena możliwa jest po wizji lokalnej.* "
+    "Koszt wizji lokalnej wynosi **od 400 do 1250 zł netto**, "
+    "w zależności od zakresu inwestycji.\n"
+    "Dziękujemy za uwagę i do zobaczenia!"
+)
+
+return {"reply": reply_text, "raw": result}
 
     # 4. Zwykła odpowiedź
     return {"reply": msg.content}
