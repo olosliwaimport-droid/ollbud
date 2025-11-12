@@ -1,7 +1,7 @@
 # app/chat_agent.py
 import json
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
 from pydantic import BaseModel
 from openai import OpenAI
@@ -142,6 +142,75 @@ def _format_tool_fallback(executed_tools: List[Tuple[str, Any]]) -> str:
     return "\n\n".join(sections)
 
 
+def _format_pln(value: Optional[float]) -> str:
+    if value is None:
+        return "—"
+    formatted = f"{value:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{formatted} PLN"
+
+
+def _compose_quick_reply(history: List[ChatTurn], executed_tools: List[Tuple[str, Any]]) -> Optional[str]:
+    estimate: Optional[Dict[str, Any]] = None
+    knr_items: Optional[List[Dict[str, Any]]] = None
+
+    for name, payload in executed_tools:
+        if name == "estimate_offer" and isinstance(payload, dict):
+            estimate = payload
+        elif name == "get_knr_rate" and isinstance(payload, list):
+            knr_items = payload
+
+    sections: List[str] = []
+
+    if estimate:
+        sections.append(
+            "\n".join(
+                [
+                    "Szacunkowe widełki kosztów:",
+                    f"• Typ zlecenia: {estimate.get('typ_prac', '—')}",
+                    f"• Powierzchnia: {estimate.get('powierzchnia_m2', '—')} m²",
+                    f"• Robocizna: {_format_pln(estimate.get('robocizna_od'))} – "
+                    f"{_format_pln(estimate.get('robocizna_do'))}",
+                    f"• Materiały: {_format_pln(estimate.get('materiały_od'))} – "
+                    f"{_format_pln(estimate.get('materiały_do'))}",
+                    f"• Łącznie: {_format_pln(estimate.get('suma_od'))} – "
+                    f"{_format_pln(estimate.get('suma_do'))}",
+                    f"• VAT: {estimate.get('stawka_VAT', '—')}",
+                ]
+            )
+        )
+
+    if knr_items is not None:
+        if not knr_items:
+            sections.append("Nie znalazłem dopasowanych pozycji KNR dla podanego opisu.")
+        else:
+            lines = ["Najlepsze dopasowania KNR:"]
+            for item in knr_items[:3]:
+                kod = item.get("kod") or "—"
+                nazwa = item.get("nazwa") or "—"
+                jednostka = item.get("jednostka") or "—"
+                rg_total = item.get("RG_total")
+                if rg_total is not None:
+                    rg_text = f", łączny nakład: {round(float(rg_total), 2)} RG"
+                else:
+                    rg_text = ""
+                lines.append(f"• {kod}: {nazwa} ({jednostka}{rg_text})")
+            sections.append("\n".join(lines))
+
+    if not sections:
+        return None
+
+    last_user = next((t.content.strip() for t in reversed(history) if t.role == "user"), "")
+    header = "Przygotowałem szybką odpowiedź na Twoje zgłoszenie."
+    if last_user:
+        trimmed = last_user if len(last_user) <= 120 else last_user[:117] + "..."
+        header = f"Na podstawie wiadomości: \"{trimmed}\" przygotowałem podsumowanie."
+
+    sections.insert(0, header)
+    sections.append("Daj proszę znać, jeśli chcesz doprecyzować zakres lub potrzebujesz czegoś jeszcze.")
+
+    return _with_cost_note("\n\n".join(sections))
+
+
 class ChatTurn(BaseModel):
     role: str
     content: str
@@ -206,6 +275,10 @@ def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
                     "name": "get_knr_rate",
                     "content": str(knrs)
                 })
+
+        quick_reply = _compose_quick_reply(history, executed_tools)
+        if quick_reply is not None:
+            return {"reply": quick_reply}
 
         # Druga runda – formatowanie końcowej odpowiedzi
         try:
