@@ -1,6 +1,7 @@
 # app/chat_agent.py
 import json
 import logging
+import os
 from typing import List, Dict, Any, Tuple, Optional
 
 from pydantic import BaseModel
@@ -9,7 +10,8 @@ from openai import OpenAI
 from app.pricing import estimate_offer
 from app.knr import find_knr_items
 
-client = OpenAI()
+
+_client: Optional[OpenAI] = None
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +88,11 @@ FALLBACK_REPLY = (
     "daj nam znać na biuro@ollbud.pl lub pod numerem infolinii – sprawdzimy to od ręki."
 )
 
+MISSING_API_KEY_HINT = (
+    "Wygląda na to, że środowisko serwera nie ma skonfigurowanego klucza OPENAI_API_KEY do "
+    "rozmowy z GPT."
+)
+
 
 def _with_cost_note(text: str) -> str:
     text = (text or "").strip()
@@ -94,9 +101,33 @@ def _with_cost_note(text: str) -> str:
     return f"{text}\n\n{COST_NOTE}"
 
 
-def _error_reply(exc: Exception) -> Dict[str, Any]:
+def _get_openai_client() -> OpenAI:
+    """Lazy init to surface brakujący klucz API jako kontrolowany błąd."""
+
+    global _client
+    if _client is not None:
+        return _client
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "Brak zmiennej środowiskowej OPENAI_API_KEY potrzebnej do połączenia z GPT"
+        )
+
+    base_url = os.getenv("OPENAI_BASE_URL")
+    if base_url:
+        _client = OpenAI(api_key=api_key, base_url=base_url)
+    else:
+        _client = OpenAI(api_key=api_key)
+    return _client
+
+
+def _error_reply(exc: Exception, hint: Optional[str] = None) -> Dict[str, Any]:
     logger.error("Błąd podczas komunikacji z modelem GPT", exc_info=exc)
-    return {"reply": FALLBACK_REPLY}
+    message = FALLBACK_REPLY
+    if hint:
+        message = f"{hint}\n\n{message}"
+    return {"reply": message}
 
 
 def _format_tool_fallback(executed_tools: List[Tuple[str, Any]]) -> str:
@@ -217,6 +248,13 @@ class ChatTurn(BaseModel):
 
 
 def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
+    try:
+        client = _get_openai_client()
+    except RuntimeError as exc:
+        return _error_reply(exc, hint=MISSING_API_KEY_HINT)
+    except Exception as exc:  # pragma: no cover - inne błędy inicjalizacji klienta
+        return _error_reply(exc)
+
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [
         {"role": t.role, "content": t.content} for t in history
     ]
