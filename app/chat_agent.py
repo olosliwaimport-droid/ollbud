@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from openai import OpenAI
 from app.pricing import estimate_offer
+import json
 
 client = OpenAI()  # używa OPENAI_API_KEY z env
 
@@ -14,7 +15,6 @@ SYSTEM_PROMPT = (
     "Mów po polsku, zwięźle, bez kwot brutto (tylko netto + stawka VAT)."
 )
 
-# Narzędzie („function”) widoczne dla modelu
 TOOLS = [
     {
         "type": "function",
@@ -60,7 +60,6 @@ def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
         tool_choice="auto",
         temperature=0.3
     )
-
     choice = resp.choices[0]
     msg = choice.message
 
@@ -68,17 +67,16 @@ def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
     if msg.tool_calls:
         for tool in msg.tool_calls:
             if tool.function.name == "estimate_offer":
-                import json
                 args = json.loads(tool.function.arguments or "{}")
                 area_m2 = float(args.get("area_m2", 0))
                 standard = (args.get("standard") or "blok").lower()
 
-                # lokalne wywołanie funkcji (bez requestu HTTP)
+                # lokalne wywołanie funkcji
                 result = estimate_offer(area_m2, standard)
 
-                # 3. Daj modelowi wynik narzędzia, by ładnie sformułował odpowiedź
+                # 3. Dodaj wynik narzędzia do historii
                 messages += [
-                    {"role": "assistant", "content": None, "tool_calls": [tool.dict()]},
+                    {"role": "assistant", "content": None, "tool_calls": [tool.model_dump()]},
                     {
                         "role": "tool",
                         "tool_call_id": tool.id,
@@ -87,23 +85,22 @@ def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
                     },
                 ]
 
-followup = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=messages,
-    temperature=0.3
-)
+                # 4. Drugie zapytanie do modelu – sformułuj odpowiedź
+                followup = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=messages,
+                    temperature=0.3
+                )
+                reply_text = followup.choices[0].message.content.strip()
 
-reply_text = followup.choices[0].message.content.strip()
+                # Dodaj stopkę
+                reply_text += (
+                    "\n\nDokładna wycena możliwa jest po wizji lokalnej. "
+                    "Koszt wizji lokalnej wynosi **od 400 do 1250 zł netto**, "
+                    "w zależności od zakresu inwestycji.\n"
+                    "Dziękujemy za uwagę i do zobaczenia!"
+                )
+                return {"reply": reply_text, "raw": result}
 
-# Dopisz informację końcową o wizji lokalnej
-reply_text += (
-    "\n\n📍 *Dokładna wycena możliwa jest po wizji lokalnej.* "
-    "Koszt wizji lokalnej wynosi **od 400 do 1250 zł netto**, "
-    "w zależności od zakresu inwestycji.\n"
-    "Dziękujemy za uwagę i do zobaczenia!"
-)
-
-return {"reply": reply_text, "raw": result}
-
-    # 4. Zwykła odpowiedź
+    # 5. Zwykła odpowiedź (bez narzędzia)
     return {"reply": msg.content}
