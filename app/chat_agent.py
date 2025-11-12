@@ -120,9 +120,13 @@ def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
 
     # Zwykła odpowiedź
     reply = (msg.content or "").strip()
-    reply += (
-        "\n\n📍 *Dokładna wycena możliwa jest po wizji lokalnej.* "
-        "Koszt wizji lokalnej: **400–1250 zł netto**.\n"
-        "Dziękujemy za uwagę i do zobaczenia!"
-    )
+reply += (
+    "\n\n📍 *Koszt przygotowania wyceny:* "
+    "\n– **499 PLN brutto** w strefie pomarańczowej,"
+    "\n– **619 PLN brutto** w strefie czerwonej,"
+    "\n– **929 PLN brutto** w strefie czarnej."
+    "\n\nW przypadku wycen dotyczących **budowy domu** obowiązuje dodatkowa stawka "
+    "**615 PLN brutto**, doliczana do kwoty podstawowej."
+    "\n\nDziękujemy za uwagę i do zobaczenia!"
+)
     return {"reply": reply}
