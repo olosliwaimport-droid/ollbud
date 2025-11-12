@@ -6,9 +6,7 @@ def estimate_offer(area_m2: float, standard: str):
     - narzut 42.5%
     - VAT 8% dla mieszkań ≤150 m² i domów ≤300 m², inaczej 23%
     """
-
     std = standard.lower()
-
     # --- stawki bazowe (robocizna netto, bez narzutów) ---
     if "budowa" in std or "dom" in std:
         base_rate = 1900  # z materiałami, stan surowy otwarty z dachem
@@ -33,7 +31,7 @@ def estimate_offer(area_m2: float, standard: str):
 
     # --- materiały ---
     if "budowa" in std or "dom" in std:
-        # budowa: stawka już zawiera materiały, nie doliczamy osobno
+        # budowa: stawka już zawiera materiały
         materials_min = 0
         materials_max = 0
     else:
@@ -50,6 +48,7 @@ def estimate_offer(area_m2: float, standard: str):
     else:
         vat_rate = "8%" if area_m2 <= 150 else "23%"
 
+    # ← ZWRACAMY wynik
     return {
         "typ_prac": type_name,
         "powierzchnia_m2": area_m2,
@@ -61,14 +60,3 @@ def estimate_offer(area_m2: float, standard: str):
         "suma_do": round(total_max, 2),
         "stawka_VAT": vat_rate
     }
-result = {
-    "typ_prac": type_name,
-    "powierzchnia_m2": area_m2,
-    "robocizna_od": round(labor_min, 2),
-    "robocizna_do": round(labor_max, 2),
-    "materiały_od": round(materials_min, 2),
-    "materiały_do": round(materials_max, 2),
-    "suma_od": round(total_min, 2),
-    "suma_do": round(total_max, 2),
-    "stawka_VAT": vat_rate
-}
