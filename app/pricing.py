@@ -61,3 +61,24 @@ def estimate_offer(area_m2: float, standard: str):
         "suma_do": round(total_max, 2),
         "stawka_VAT": vat_rate
     }
+result = {
+    "typ_prac": type_name,
+    "powierzchnia_m2": area_m2,
+    "robocizna_od": round(labor_min, 2),
+    "robocizna_do": round(labor_max, 2),
+    "materiały_od": round(materials_min, 2),
+    "materiały_do": round(materials_max, 2),
+    "suma_od": round(total_min, 2),
+    "suma_do": round(total_max, 2),
+    "stawka_VAT": vat_rate
+}
+
+# Dopisek dla klienta
+result["uwaga"] = (
+    "Dokładna wycena możliwa jest po wizji lokalnej. "
+    "Koszt wizji lokalnej wynosi od 400 do 1250 zł netto, "
+    "w zależności od zakresu inwestycji. "
+    "Dziękujemy za uwagę i do zobaczenia!"
+)
+
+return result
