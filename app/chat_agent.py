@@ -1,21 +1,43 @@
 # app/chat_agent.py
-from typing import List, Dict, Any
+from __future__ import annotations
+import json
+import logging
+import os
+import re
+from typing import List, Dict, Any, Tuple, Optional
+
 from pydantic import BaseModel
 from openai import OpenAI
+
 from app.pricing import estimate_offer
 from app.knr import find_knr_items
 
-client = OpenAI()
+
+_client: Optional[OpenAI] = None
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "Jesteś asystentem firmy OLLBUD. Rozmawiasz po polsku. "
     "Dopytujesz tylko o kluczowe informacje. "
     "Gdy użytkownik podaje konkretne prace (np. 'malowanie ścian 120 m2', 'montaż paneli 60 m2'), "
     "użyj narzędzia get_knr_rate, aby przytoczyć KNR (w tym RG i ewentualną jednostkę). "
-    "Zawsze zwracaj łączny nakład robocizny (RG) jeśli podano ilość. "
+    "Zawsze zwracaj łączny nakład robocizny (RG) jeśli podano ilość i przelicz koszt w PLN, "
+    "licząc 100–180 PLN netto za RG + narzut 42,5% (kwota obejmuje robociznę i materiały). "
     "Gdy masz metraż całego zlecenia i typ/standard (blok/kamienica/dom/deweloperski/budowa domu), "
     "wywołaj estimate_offer i przedstaw widełki. "
+    "Każdą kwotę opisuj jako obejmującą robociznę i materiały – "
+    "nie pisz nigdy, że materiały są wyłączone. "
     "Na końcu przypominaj o kosztach przygotowania wyceny."
+)
+
+TOTALS_INCLUDE_MATERIALS_NOTE = (
+    "(Kwoty zawierają robociznę oraz materiały w zadanym standardzie.)"
+)
+
+KNR_FALLBACK_NOTE = (
+    "⚠️ Nie mam w tej chwili połączenia z modelem GPT, więc korzystam z danych KNR, "
+    "żeby podać najważniejsze informacje kosztowe."
 )
 
 TOOLS = [
@@ -64,39 +86,337 @@ TOOLS = [
     }
 ]
 
+COST_NOTE = (
+    "📍 *Koszt przygotowania wyceny:* "
+    "\n– **499 PLN brutto** w strefie pomarańczowej," 
+    "\n– **619 PLN brutto** w strefie czerwonej," 
+    "\n– **929 PLN brutto** w strefie czarnej." 
+    "\n\nW przypadku wycen dotyczących **budowy domu** obowiązuje dodatkowa stawka "
+    "**615 PLN brutto**, doliczana do kwoty podstawowej." 
+    "\n\nDziękujemy za uwagę i do zobaczenia!"
+)
+
+FALLBACK_REPLY = (
+    "Przepraszam, mam teraz trudności z połączeniem z agentem GPT. "
+    "Spróbuj proszę ponownie za kilka minut. Jeżeli problem się powtarza, "
+    "daj nam znać na biuro@ollbud.pl lub pod numerem infolinii – sprawdzimy to od ręki."
+)
+
+MISSING_API_KEY_HINT = (
+    "Wygląda na to, że środowisko serwera nie ma skonfigurowanego klucza OPENAI_API_KEY do "
+    "rozmowy z GPT."
+)
+
+
+def _with_cost_note(text: str) -> str:
+    text = (text or "").strip()
+    if not text:
+        return COST_NOTE
+    return f"{text}\n\n{COST_NOTE}"
+
+
+def _get_openai_client() -> OpenAI:
+    """Lazy init to surface brakujący klucz API jako kontrolowany błąd."""
+
+    global _client
+    if _client is not None:
+        return _client
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "Brak zmiennej środowiskowej OPENAI_API_KEY potrzebnej do połączenia z GPT"
+        )
+
+    base_url = os.getenv("OPENAI_BASE_URL")
+    if base_url:
+        _client = OpenAI(api_key=api_key, base_url=base_url)
+    else:
+        _client = OpenAI(api_key=api_key)
+    return _client
+
+
+def _error_reply(exc: Exception, hint: Optional[str] = None) -> Dict[str, Any]:
+    logger.error("Błąd podczas komunikacji z modelem GPT", exc_info=exc)
+    message = FALLBACK_REPLY
+    if hint:
+        message = f"{hint}\n\n{message}"
+    return {"reply": message}
+
+
+def _format_tool_fallback(executed_tools: List[Tuple[str, Any]]) -> str:
+    if not executed_tools:
+        return ""
+
+    sections: List[str] = []
+    for name, result in executed_tools:
+        if name == "estimate_offer" and isinstance(result, dict):
+            parts = [
+                "Oto dane z kalkulacji, którą udało się policzyć:",
+                f"• Typ prac: {result.get('typ_prac', '—')}",
+                f"• Powierzchnia: {result.get('powierzchnia_m2', '—')} m²",
+                f"• Koszt od: {result.get('suma_od', '—')} PLN",
+                f"• Koszt do: {result.get('suma_do', '—')} PLN",
+                f"• VAT: {result.get('stawka_VAT', '—')}",
+            ]
+            parts.append(TOTALS_INCLUDE_MATERIALS_NOTE)
+            sections.append("\n".join(parts))
+        elif name == "get_knr_rate" and isinstance(result, list):
+            if not result:
+                sections.append("Nie znaleziono pozycji KNR dla podanego zapytania.")
+                continue
+
+            lines = ["Najlepsze dopasowania KNR:"]
+            for item in result[:3]:
+                kod = item.get("kod") or "—"
+                nazwa = item.get("nazwa") or "—"
+                jednostka = item.get("jednostka") or "—"
+                rg_total = item.get("RG_total")
+                koszt_total_od = item.get("koszt_od")
+                koszt_total_do = item.get("koszt_do")
+                koszt_jedn_od = item.get("koszt_jedn_od")
+                koszt_jedn_do = item.get("koszt_jedn_do")
+                rg_text = (
+                    f", łączny nakład: {rg_total} RG" if rg_total is not None else ""
+                )
+                if koszt_total_od is not None and koszt_total_do is not None:
+                    koszt_text = (
+                        f", koszt: {_format_pln(koszt_total_od)} – {_format_pln(koszt_total_do)}"
+                    )
+                elif koszt_jedn_od is not None and koszt_jedn_do is not None:
+                    koszt_text = (
+                        f", koszt jednostkowy: {_format_pln(koszt_jedn_od)} – {_format_pln(koszt_jedn_do)}"
+                    )
+                else:
+                    koszt_text = ""
+                lines.append(f"• {kod}: {nazwa} ({jednostka}{rg_text}{koszt_text})")
+            lines.append(
+                "Kwoty obliczono wg KNR i stawki 100–180 PLN netto za RG z narzutem 42,5%."
+            )
+            sections.append("\n".join(lines))
+
+    if not sections:
+        return ""
+
+    sections.append(
+        "Przepraszam, nie udało się jednak wygenerować pełnej odpowiedzi. "
+        "Spróbuj proszę ponownie za chwilę lub skontaktuj się z nami – pomożemy."
+    )
+    return "\n\n".join(sections)
+
+
+def _format_pln(value: Optional[float]) -> str:
+    if value is None:
+        return "—"
+    formatted = f"{value:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{formatted} PLN"
+
+
+_DIMENSION_PATTERN = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(?:m|metr(?:ów|y|a)?)\s*(?:na|x|×)\s*(\d+(?:[.,]\d+)?)\s*(?:m|metr(?:ów|y|a)?)",
+    re.IGNORECASE,
+)
+_AREA_PATTERN = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(?:m2|m²|m\^2|mkw|m kw|m\.kw)",
+    re.IGNORECASE,
+)
+
+
+def _to_float(value: str) -> Optional[float]:
+    try:
+        return float(value.replace(" ", "").replace(",", "."))
+    except (ValueError, AttributeError):
+        return None
+
+
+def _infer_area_m2(text: str) -> Optional[float]:
+    if not text:
+        return None
+
+    dimension_match = _DIMENSION_PATTERN.search(text)
+    if dimension_match:
+        first = _to_float(dimension_match.group(1))
+        second = _to_float(dimension_match.group(2))
+        if first is not None and second is not None:
+            return round(first * second, 2)
+
+    area_match = _AREA_PATTERN.search(text)
+    if area_match:
+        area = _to_float(area_match.group(1))
+        if area is not None:
+            return round(area, 2)
+
+    return None
+
+
+def _compose_quick_reply(history: List[ChatTurn], executed_tools: List[Tuple[str, Any]]) -> Optional[str]:
+    estimate: Optional[Dict[str, Any]] = None
+    knr_items: Optional[List[Dict[str, Any]]] = None
+
+    for name, payload in executed_tools:
+        if name == "estimate_offer" and isinstance(payload, dict):
+            estimate = payload
+        elif name == "get_knr_rate" and isinstance(payload, list):
+            knr_items = payload
+
+    sections: List[str] = []
+
+    if estimate:
+        sections.append(
+            "\n".join(
+                [
+                    "Szacunkowe widełki kosztów:",
+                    f"• Typ zlecenia: {estimate.get('typ_prac', '—')}",
+                    f"• Powierzchnia: {estimate.get('powierzchnia_m2', '—')} m²",
+                    f"• Robocizna: {_format_pln(estimate.get('robocizna_od'))} – "
+                    f"{_format_pln(estimate.get('robocizna_do'))}",
+                    f"• Materiały: {_format_pln(estimate.get('materiały_od'))} – "
+                    f"{_format_pln(estimate.get('materiały_do'))}",
+                    f"• Łącznie: {_format_pln(estimate.get('suma_od'))} – "
+                    f"{_format_pln(estimate.get('suma_do'))}",
+                    f"• VAT: {estimate.get('stawka_VAT', '—')}",
+                ]
+            )
+        )
+        sections.append(TOTALS_INCLUDE_MATERIALS_NOTE)
+
+    if knr_items is not None:
+        if not knr_items:
+            sections.append("Nie znalazłem dopasowanych pozycji KNR dla podanego opisu.")
+        else:
+            lines = ["Najlepsze dopasowania KNR:"]
+            for item in knr_items[:3]:
+                kod = item.get("kod") or "—"
+                nazwa = item.get("nazwa") or "—"
+                jednostka = item.get("jednostka") or "—"
+                rg_total = item.get("RG_total")
+                koszt_total_od = item.get("koszt_od")
+                koszt_total_do = item.get("koszt_do")
+                koszt_jedn_od = item.get("koszt_jedn_od")
+                koszt_jedn_do = item.get("koszt_jedn_do")
+                if rg_total is not None:
+                    rg_text = f", łączny nakład: {round(float(rg_total), 2)} RG"
+                else:
+                    rg_text = ""
+                if koszt_total_od is not None and koszt_total_do is not None:
+                    koszt_text = (
+                        f", koszt: {_format_pln(koszt_total_od)} – {_format_pln(koszt_total_do)}"
+                    )
+                elif koszt_jedn_od is not None and koszt_jedn_do is not None:
+                    koszt_text = (
+                        f", koszt jednostkowy: {_format_pln(koszt_jedn_od)} – {_format_pln(koszt_jedn_do)}"
+                    )
+                else:
+                    koszt_text = ""
+                lines.append(f"• {kod}: {nazwa} ({jednostka}{rg_text}{koszt_text})")
+
+            lines.append(
+                "Kwoty obliczono wg KNR i stawki 100–180 PLN netto za RG z narzutem 42,5%."
+            )
+            sections.append("\n".join(lines))
+
+    if not sections:
+        return None
+
+    last_user = next((t.content.strip() for t in reversed(history) if t.role == "user"), "")
+    header = "Przygotowałem szybką odpowiedź na Twoje zgłoszenie."
+    if last_user:
+        trimmed = last_user if len(last_user) <= 120 else last_user[:117] + "..."
+        header = f"Na podstawie wiadomości: \"{trimmed}\" przygotowałem podsumowanie."
+
+    sections.insert(0, header)
+    sections.append(
+        "Daj proszę znać, jeśli chcesz doprecyzować zakres lub potrzebujesz czegoś jeszcze."
+    )
+
+    return _with_cost_note("\n\n".join(sections))
+
 
 class ChatTurn(BaseModel):
     role: str
     content: str
 
 
+def _attempt_knr_direct_reply(history: List["ChatTurn"]) -> Optional[Dict[str, Any]]:
+    last_user = next((turn.content for turn in reversed(history) if turn.role == "user"), "")
+    query = (last_user or "").strip()
+    if not query:
+        return None
+
+    ilosc = _infer_area_m2(query)
+
+    try:
+        knrs = find_knr_items(query, top_n=5, ilosc=ilosc)
+    except Exception as exc:  # pragma: no cover - defensywne logowanie
+        logger.error("KNR fallback nie powiódł się", exc_info=exc)
+        return None
+
+    executed_tools: List[Tuple[str, Any]] = [("get_knr_rate", knrs)]
+    quick_reply = _compose_quick_reply(history, executed_tools)
+    if quick_reply:
+        return {"reply": f"{KNR_FALLBACK_NOTE}\n\n{quick_reply}"}
+
+    fallback = _format_tool_fallback(executed_tools)
+    if fallback:
+        return {"reply": _with_cost_note(f"{KNR_FALLBACK_NOTE}\n\n{fallback}")}
+
+    return None
+
+
 def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
+    try:
+        client = _get_openai_client()
+    except RuntimeError as exc:
+        knr_reply = _attempt_knr_direct_reply(history)
+        if knr_reply:
+            return knr_reply
+        return _error_reply(exc, hint=MISSING_API_KEY_HINT)
+    except Exception as exc:  # pragma: no cover - inne błędy inicjalizacji klienta
+        knr_reply = _attempt_knr_direct_reply(history)
+        if knr_reply:
+            return knr_reply
+        return _error_reply(exc)
+
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [
         {"role": t.role, "content": t.content} for t in history
     ]
 
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        tools=TOOLS,
-        tool_choice="auto",
-        temperature=0.2
-    )
+    try:
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            tools=TOOLS,
+            tool_choice="auto",
+            temperature=0.2
+        )
+    except Exception as exc:  # pragma: no cover - sieć może być niedostępna w testach
+        knr_reply = _attempt_knr_direct_reply(history)
+        if knr_reply:
+            return knr_reply
+        return _error_reply(exc)
 
     msg = resp.choices[0].message
 
     # Obsługa wywołań narzędzi (KNR, wycena)
     if msg.tool_calls:
         tool_messages = []
+        executed_tools: List[Tuple[str, Any]] = []
         for call in msg.tool_calls:
             name = call.function.name
-            import json
-            args = json.loads(call.function.arguments or "{}")
+            try:
+                args = json.loads(call.function.arguments or "{}")
+            except json.JSONDecodeError as exc:
+                logger.error("Nie udało się sparsować argumentów narzędzia %s", name, exc_info=exc)
+                return _error_reply(exc)
 
             if name == "estimate_offer":
                 area = float(args.get("area_m2", 0))
                 standard = (args.get("standard") or "blok").lower()
-                result = estimate_offer(area, standard)
+                try:
+                    result = estimate_offer(area, standard)
+                except Exception as exc:  # pragma: no cover - defensywne logowanie
+                    return _error_reply(exc)
+                executed_tools.append((name, result))
                 tool_messages.append({
                     "role": "tool",
                     "tool_call_id": call.id,
@@ -107,7 +427,11 @@ def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
             elif name == "get_knr_rate":
                 query = args.get("query") or ""
                 ilosc = args.get("ilosc")
-                knrs = find_knr_items(query, top_n=5, ilosc=ilosc)
+                try:
+                    knrs = find_knr_items(query, top_n=5, ilosc=ilosc)
+                except Exception as exc:  # pragma: no cover - np. brak pliku KNR
+                    return _error_reply(exc)
+                executed_tools.append((name, knrs))
                 tool_messages.append({
                     "role": "tool",
                     "tool_call_id": call.id,
@@ -115,37 +439,29 @@ def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
                     "content": str(knrs)
                 })
 
-        # Druga runda – formatowanie końcowej odpowiedzi
-        follow = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages
-            + [{"role": "assistant", "content": None, "tool_calls": msg.tool_calls}]
-            + tool_messages,
-            temperature=0.2
-        )
-        reply = (follow.choices[0].message.content or "").strip()
+        quick_reply = _compose_quick_reply(history, executed_tools)
+        if quick_reply is not None:
+            return {"reply": quick_reply}
 
-        # Dopisek o kosztach przygotowania wyceny
-        reply += (
-            "\n\n📍 *Koszt przygotowania wyceny:* "
-            "\n– **499 PLN brutto** w strefie pomarańczowej,"
-            "\n– **619 PLN brutto** w strefie czerwonej,"
-            "\n– **929 PLN brutto** w strefie czarnej."
-            "\n\nW przypadku wycen dotyczących **budowy domu** obowiązuje dodatkowa stawka "
-            "**615 PLN brutto**, doliczana do kwoty podstawowej."
-            "\n\nDziękujemy za uwagę i do zobaczenia!"
-        )
-        return {"reply": reply}
+        # Druga runda – formatowanie końcowej odpowiedzi
+        try:
+            follow = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages
+                + [{"role": "assistant", "content": None, "tool_calls": msg.tool_calls}]
+                + tool_messages,
+                temperature=0.2
+            )
+            reply = (follow.choices[0].message.content or "").strip()
+            return {"reply": _with_cost_note(reply)}
+        except Exception as exc:  # pragma: no cover - fallback dla problemów sieciowych
+            fallback = _format_tool_fallback(executed_tools)
+            if fallback:
+                return {"reply": _with_cost_note(fallback)}
+            return _error_reply(exc)
+
+        # return occurs above on success/fallback
 
     # Zwykła odpowiedź (bez wywołania narzędzi)
     reply = (msg.content or "").strip()
-    reply += (
-        "\n\n📍 *Koszt przygotowania wyceny:* "
-        "\n– **499 PLN brutto** w strefie pomarańczowej,"
-        "\n– **619 PLN brutto** w strefie czerwonej,"
-        "\n– **929 PLN brutto** w strefie czarnej."
-        "\n\nW przypadku wycen dotyczących **budowy domu** obowiązuje dodatkowa stawka "
-        "**615 PLN brutto**, doliczana do kwoty podstawowej."
-        "\n\nDziękujemy za uwagę i do zobaczenia!"
-    )
-    return {"reply": reply}
+    return {"reply": _with_cost_note(reply)}
