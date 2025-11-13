@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import re
 from typing import List, Dict, Any, Tuple, Optional
 
 from pydantic import BaseModel
@@ -31,6 +32,11 @@ SYSTEM_PROMPT = (
 
 TOTALS_INCLUDE_MATERIALS_NOTE = (
     "(Kwoty zawierają robociznę oraz materiały w zadanym standardzie.)"
+)
+
+KNR_FALLBACK_NOTE = (
+    "⚠️ Nie mam w tej chwili połączenia z modelem GPT, więc korzystam z danych KNR, "
+    "żeby podać najważniejsze informacje kosztowe."
 )
 
 TOOLS = [
@@ -205,6 +211,43 @@ def _format_pln(value: Optional[float]) -> str:
     return f"{formatted} PLN"
 
 
+_DIMENSION_PATTERN = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(?:m|metr(?:ów|y|a)?)\s*(?:na|x|×)\s*(\d+(?:[.,]\d+)?)\s*(?:m|metr(?:ów|y|a)?)",
+    re.IGNORECASE,
+)
+_AREA_PATTERN = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(?:m2|m²|m\^2|mkw|m kw|m\.kw)",
+    re.IGNORECASE,
+)
+
+
+def _to_float(value: str) -> Optional[float]:
+    try:
+        return float(value.replace(" ", "").replace(",", "."))
+    except (ValueError, AttributeError):
+        return None
+
+
+def _infer_area_m2(text: str) -> Optional[float]:
+    if not text:
+        return None
+
+    dimension_match = _DIMENSION_PATTERN.search(text)
+    if dimension_match:
+        first = _to_float(dimension_match.group(1))
+        second = _to_float(dimension_match.group(2))
+        if first is not None and second is not None:
+            return round(first * second, 2)
+
+    area_match = _AREA_PATTERN.search(text)
+    if area_match:
+        area = _to_float(area_match.group(1))
+        if area is not None:
+            return round(area, 2)
+
+    return None
+
+
 def _compose_quick_reply(history: List[ChatTurn], executed_tools: List[Tuple[str, Any]]) -> Optional[str]:
     estimate: Optional[Dict[str, Any]] = None
     knr_items: Optional[List[Dict[str, Any]]] = None
@@ -293,12 +336,44 @@ class ChatTurn(BaseModel):
     content: str
 
 
+def _attempt_knr_direct_reply(history: List["ChatTurn"]) -> Optional[Dict[str, Any]]:
+    last_user = next((turn.content for turn in reversed(history) if turn.role == "user"), "")
+    query = (last_user or "").strip()
+    if not query:
+        return None
+
+    ilosc = _infer_area_m2(query)
+
+    try:
+        knrs = find_knr_items(query, top_n=5, ilosc=ilosc)
+    except Exception as exc:  # pragma: no cover - defensywne logowanie
+        logger.error("KNR fallback nie powiódł się", exc_info=exc)
+        return None
+
+    executed_tools: List[Tuple[str, Any]] = [("get_knr_rate", knrs)]
+    quick_reply = _compose_quick_reply(history, executed_tools)
+    if quick_reply:
+        return {"reply": f"{KNR_FALLBACK_NOTE}\n\n{quick_reply}"}
+
+    fallback = _format_tool_fallback(executed_tools)
+    if fallback:
+        return {"reply": _with_cost_note(f"{KNR_FALLBACK_NOTE}\n\n{fallback}")}
+
+    return None
+
+
 def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
     try:
         client = _get_openai_client()
     except RuntimeError as exc:
+        knr_reply = _attempt_knr_direct_reply(history)
+        if knr_reply:
+            return knr_reply
         return _error_reply(exc, hint=MISSING_API_KEY_HINT)
     except Exception as exc:  # pragma: no cover - inne błędy inicjalizacji klienta
+        knr_reply = _attempt_knr_direct_reply(history)
+        if knr_reply:
+            return knr_reply
         return _error_reply(exc)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [
@@ -314,6 +389,9 @@ def run_chat_agent(history: List[ChatTurn]) -> Dict[str, Any]:
             temperature=0.2
         )
     except Exception as exc:  # pragma: no cover - sieć może być niedostępna w testach
+        knr_reply = _attempt_knr_direct_reply(history)
+        if knr_reply:
+            return knr_reply
         return _error_reply(exc)
 
     msg = resp.choices[0].message
