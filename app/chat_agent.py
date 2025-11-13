@@ -20,7 +20,8 @@ SYSTEM_PROMPT = (
     "Dopytujesz tylko o kluczowe informacje. "
     "Gdy użytkownik podaje konkretne prace (np. 'malowanie ścian 120 m2', 'montaż paneli 60 m2'), "
     "użyj narzędzia get_knr_rate, aby przytoczyć KNR (w tym RG i ewentualną jednostkę). "
-    "Zawsze zwracaj łączny nakład robocizny (RG) jeśli podano ilość. "
+    "Zawsze zwracaj łączny nakład robocizny (RG) jeśli podano ilość i przelicz koszt w PLN, "
+    "licząc 100–180 PLN netto za RG + narzut 42,5% (kwota obejmuje robociznę i materiały). "
     "Gdy masz metraż całego zlecenia i typ/standard (blok/kamienica/dom/deweloperski/budowa domu), "
     "wywołaj estimate_offer i przedstaw widełki. "
     "Każdą kwotę opisuj jako obejmującą robociznę i materiały – "
@@ -164,10 +165,27 @@ def _format_tool_fallback(executed_tools: List[Tuple[str, Any]]) -> str:
                 nazwa = item.get("nazwa") or "—"
                 jednostka = item.get("jednostka") or "—"
                 rg_total = item.get("RG_total")
+                koszt_total_od = item.get("koszt_od")
+                koszt_total_do = item.get("koszt_do")
+                koszt_jedn_od = item.get("koszt_jedn_od")
+                koszt_jedn_do = item.get("koszt_jedn_do")
                 rg_text = (
                     f", łączny nakład: {rg_total} RG" if rg_total is not None else ""
                 )
-                lines.append(f"• {kod}: {nazwa} ({jednostka}{rg_text})")
+                if koszt_total_od is not None and koszt_total_do is not None:
+                    koszt_text = (
+                        f", koszt: {_format_pln(koszt_total_od)} – {_format_pln(koszt_total_do)}"
+                    )
+                elif koszt_jedn_od is not None and koszt_jedn_do is not None:
+                    koszt_text = (
+                        f", koszt jednostkowy: {_format_pln(koszt_jedn_od)} – {_format_pln(koszt_jedn_do)}"
+                    )
+                else:
+                    koszt_text = ""
+                lines.append(f"• {kod}: {nazwa} ({jednostka}{rg_text}{koszt_text})")
+            lines.append(
+                "Kwoty obliczono wg KNR i stawki 100–180 PLN netto za RG z narzutem 42,5%."
+            )
             sections.append("\n".join(lines))
 
     if not sections:
@@ -228,11 +246,29 @@ def _compose_quick_reply(history: List[ChatTurn], executed_tools: List[Tuple[str
                 nazwa = item.get("nazwa") or "—"
                 jednostka = item.get("jednostka") or "—"
                 rg_total = item.get("RG_total")
+                koszt_total_od = item.get("koszt_od")
+                koszt_total_do = item.get("koszt_do")
+                koszt_jedn_od = item.get("koszt_jedn_od")
+                koszt_jedn_do = item.get("koszt_jedn_do")
                 if rg_total is not None:
                     rg_text = f", łączny nakład: {round(float(rg_total), 2)} RG"
                 else:
                     rg_text = ""
-                lines.append(f"• {kod}: {nazwa} ({jednostka}{rg_text})")
+                if koszt_total_od is not None and koszt_total_do is not None:
+                    koszt_text = (
+                        f", koszt: {_format_pln(koszt_total_od)} – {_format_pln(koszt_total_do)}"
+                    )
+                elif koszt_jedn_od is not None and koszt_jedn_do is not None:
+                    koszt_text = (
+                        f", koszt jednostkowy: {_format_pln(koszt_jedn_od)} – {_format_pln(koszt_jedn_do)}"
+                    )
+                else:
+                    koszt_text = ""
+                lines.append(f"• {kod}: {nazwa} ({jednostka}{rg_text}{koszt_text})")
+
+            lines.append(
+                "Kwoty obliczono wg KNR i stawki 100–180 PLN netto za RG z narzutem 42,5%."
+            )
             sections.append("\n".join(lines))
 
     if not sections:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os
 from dataclasses import dataclass, asdict
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import pandas as pd
 from rapidfuzz import process, fuzz
 
@@ -22,6 +22,18 @@ COLUMN_MAP = {
 }
 
 KNR_PATH = os.getenv("KNR_PATH", "data/knr.xlsx")  # możesz nadpisać w ENV
+RG_RATE_MIN = 100.0  # PLN netto / RG
+RG_RATE_MAX = 180.0
+NARZUT = 0.425
+
+
+def _calc_cost_range(rg_value: Optional[float]) -> Tuple[Optional[float], Optional[float]]:
+    if rg_value is None:
+        return None, None
+    net_min = float(rg_value) * RG_RATE_MIN
+    net_max = float(rg_value) * RG_RATE_MAX
+    multiplier = 1 + NARZUT
+    return net_min * multiplier, net_max * multiplier
 
 @dataclass
 class KNRItem:
@@ -35,11 +47,26 @@ class KNRItem:
     score: float                # trafność dopasowania 0-100
     RG_total: Optional[float]   # RG po uwzględnieniu ilości (jeśli podano)
     ilosc: Optional[float]
+    koszt_od: Optional[float]
+    koszt_do: Optional[float]
+    koszt_jedn_od: Optional[float]
+    koszt_jedn_do: Optional[float]
 
     def to_dict(self):
         d = asdict(self)
         # Porządkuj liczby do 4 miejsc po przecinku
-        for k in ["R", "M", "S", "Cena_jedn", "RG_total", "ilosc"]:
+        for k in [
+            "R",
+            "M",
+            "S",
+            "Cena_jedn",
+            "RG_total",
+            "ilosc",
+            "koszt_od",
+            "koszt_do",
+            "koszt_jedn_od",
+            "koszt_jedn_do",
+        ]:
             if d.get(k) is not None:
                 d[k] = round(float(d[k]), 4)
         return d
@@ -88,6 +115,8 @@ def find_knr_items(query: str, top_n: int = 5, ilosc: Optional[float] = None) ->
         row = df.iloc[idx]
         R = row.get("R")
         RG_total = float(R) * float(ilosc) if (R is not None and ilosc is not None) else None
+        koszt_od, koszt_do = _calc_cost_range(RG_total)
+        koszt_jedn_od, koszt_jedn_do = _calc_cost_range(float(R) if R is not None else None)
 
         item = KNRItem(
             kod=row.get("kod") if "kod" in df.columns else None,
@@ -100,6 +129,10 @@ def find_knr_items(query: str, top_n: int = 5, ilosc: Optional[float] = None) ->
             score=float(score),
             RG_total=RG_total,
             ilosc=float(ilosc) if ilosc is not None else None,
+            koszt_od=koszt_od,
+            koszt_do=koszt_do,
+            koszt_jedn_od=koszt_jedn_od,
+            koszt_jedn_do=koszt_jedn_do,
         )
         results.append(item)
 
