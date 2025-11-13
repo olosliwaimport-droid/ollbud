@@ -1,15 +1,12 @@
 def estimate_offer(area_m2: float, standard: str):
-    """
-    Szacuje koszt robót dla danego metrażu i standardu.
-    Zasady:
-    - robocizna bazowa zależna od typu (blok, kamienica, deweloperski, budowa domu)
-    - narzut 42.5%
-    - VAT 8% dla mieszkań ≤150 m² i domów ≤300 m², inaczej 23%
-    """
+    """Przygotuj widełki kosztów z materiałami."""
+
     std = standard.lower()
-    # --- stawki bazowe (robocizna netto, bez narzutów) ---
-    if "budowa" in std or "dom" in std:
-        base_rate = 1900  # z materiałami, stan surowy otwarty z dachem
+    is_house = "budowa" in std or "dom" in std
+
+    # --- stawki bazowe (netto, przed narzutem) ---
+    if is_house:
+        base_rate = 1900  # stawka całkowita za m² stanu surowego otwartego z dachem
         type_name = "budowa domu"
     elif "kamienica" in std:
         base_rate = 1200
@@ -29,21 +26,25 @@ def estimate_offer(area_m2: float, standard: str):
     labor_min *= 1.425
     labor_max *= 1.425
 
-    # --- materiały ---
-    if "budowa" in std or "dom" in std:
-        # budowa: stawka już zawiera materiały
-        materials_min = 0
-        materials_max = 0
+    # --- materiały + suma ---
+    if is_house:
+        # Stawka bazowa zawiera materiały – rozdzielamy koszty przy założeniu,
+        # że ~55% przypada na materiały dla SSO.
+        total_min = labor_min
+        total_max = labor_max
+        material_share = 0.55
+        materials_min = total_min * material_share
+        materials_max = total_max * material_share
+        labor_min = total_min - materials_min
+        labor_max = total_max - materials_max
     else:
         materials_min = labor_min * 0.6 * 1.425
         materials_max = labor_min * 1.5 * 1.425
-
-    # --- suma ---
-    total_min = labor_min + materials_min
-    total_max = labor_max + materials_max
+        total_min = labor_min + materials_min
+        total_max = labor_max + materials_max
 
     # --- VAT ---
-    if "budowa" in std or "dom" in std:
+    if is_house:
         vat_rate = "8%" if area_m2 <= 300 else "23%"
     else:
         vat_rate = "8%" if area_m2 <= 150 else "23%"

@@ -23,7 +23,13 @@ SYSTEM_PROMPT = (
     "Zawsze zwracaj łączny nakład robocizny (RG) jeśli podano ilość. "
     "Gdy masz metraż całego zlecenia i typ/standard (blok/kamienica/dom/deweloperski/budowa domu), "
     "wywołaj estimate_offer i przedstaw widełki. "
+    "Każdą kwotę opisuj jako obejmującą robociznę i materiały – "
+    "nie pisz nigdy, że materiały są wyłączone. "
     "Na końcu przypominaj o kosztach przygotowania wyceny."
+)
+
+TOTALS_INCLUDE_MATERIALS_NOTE = (
+    "(Kwoty zawierają robociznę oraz materiały w zadanym standardzie.)"
 )
 
 TOOLS = [
@@ -145,6 +151,7 @@ def _format_tool_fallback(executed_tools: List[Tuple[str, Any]]) -> str:
                 f"• Koszt do: {result.get('suma_do', '—')} PLN",
                 f"• VAT: {result.get('stawka_VAT', '—')}",
             ]
+            parts.append(TOTALS_INCLUDE_MATERIALS_NOTE)
             sections.append("\n".join(parts))
         elif name == "get_knr_rate" and isinstance(result, list):
             if not result:
@@ -209,6 +216,7 @@ def _compose_quick_reply(history: List[ChatTurn], executed_tools: List[Tuple[str
                 ]
             )
         )
+        sections.append(TOTALS_INCLUDE_MATERIALS_NOTE)
 
     if knr_items is not None:
         if not knr_items:
@@ -237,7 +245,9 @@ def _compose_quick_reply(history: List[ChatTurn], executed_tools: List[Tuple[str
         header = f"Na podstawie wiadomości: \"{trimmed}\" przygotowałem podsumowanie."
 
     sections.insert(0, header)
-    sections.append("Daj proszę znać, jeśli chcesz doprecyzować zakres lub potrzebujesz czegoś jeszcze.")
+    sections.append(
+        "Daj proszę znać, jeśli chcesz doprecyzować zakres lub potrzebujesz czegoś jeszcze."
+    )
 
     return _with_cost_note("\n\n".join(sections))
 
