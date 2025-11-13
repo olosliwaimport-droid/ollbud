@@ -11,11 +11,12 @@ _KNR_DF: Optional[pd.DataFrame] = None
 # DOPASUJ TU NAZWY KOLUMN DO SWOJEGO XLSX:
 # Minimalnie potrzebujemy: 'nazwa', 'jednostka', 'R' (roboczogodziny / jednostkę).
 # Opcjonalnie: 'kod', 'M', 'S', 'Cena_jedn'
+# mapowanie -> klucze docelowe : nazwy kolumn w pliku
 COLUMN_MAP = {
-    "kod": "kod",                # np. "KNR 2-15 0101-01"
-    "nazwa": "nazwa",            # opis pozycji
-    "jednostka": "jednostka",    # np. "m2", "m", "szt."
-    "R": "R",                    # roboczogodziny na jednostkę
+    "kod": "KNR",                # np. "KNR 2-15 0101-01"
+    "nazwa": "Nazwa pozycji",    # opis pozycji
+    "jednostka": "Jednostka",    # np. "m2", "m", "szt."
+    "R": "Suma RG",              # roboczogodziny na jednostkę
     "M": "M",                    # materiały (opcjonalnie)
     "S": "S",                    # sprzęt (opcjonalnie)
     "Cena_jedn": "Cena_jedn",    # cena jednostkowa RMS (opcjonalnie)
