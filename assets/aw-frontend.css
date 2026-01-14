@@ -110,6 +110,30 @@
     align-items: start;
 }
 
+.aw-chat-left .aw-room-content {
+    grid-template-columns: 1fr 2fr;
+}
+
+.aw-chat-left .aw-video {
+    order: 2;
+}
+
+.aw-chat-left #aw-qa-section {
+    order: 1;
+}
+
+.aw-chat-bottom .aw-room-content {
+    grid-template-columns: 1fr;
+}
+
+.aw-chat-bottom #aw-qa-section {
+    order: 2;
+}
+
+.aw-chat-bottom .aw-video {
+    order: 1;
+}
+
 .aw-layout-video_only .aw-room-content {
     grid-template-columns: 1fr;
 }

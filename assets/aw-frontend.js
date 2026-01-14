@@ -1,6 +1,6 @@
 (function ($) {
     const leadTimeMs = (AWSettings.leadTimeMinutes || 10) * 60 * 1000;
-    const slotIntervalMinutes = Math.max(5, AWSettings.slotIntervalMinutes || 15);
+    const slotIntervalMinutes = Math.max(1, AWSettings.slotIntervalMinutes || 15);
     const daysAhead = Math.max(1, AWSettings.registrationDaysAhead || 7);
 
     const formatDate = (date) => date.toLocaleDateString('pl-PL', { weekday: 'long', day: '2-digit', month: '2-digit' });
@@ -91,6 +91,9 @@
         const chatBefore = room.data('chat-before') || 'show';
         const chatDuring = room.data('chat-during') || 'show';
         const chatAfter = room.data('chat-after') || 'hide';
+        const videoBefore = room.data('video-before') || 'hide';
+        const videoDuring = room.data('video-during') || 'show';
+        const videoAfter = room.data('video-after') || 'hide';
 
         const updateRoomState = () => {
             const now = Date.now();
@@ -100,6 +103,7 @@
             const statusEl = $('#aw-room-status');
             const changeEl = $('#aw-change-slot');
             const chatSection = $('#aw-qa-section');
+            const videoSection = $('#aw-video');
 
             if (now < start) {
                 const diff = start - now;
@@ -107,7 +111,7 @@
                 const seconds = Math.floor((diff % 60000) / 1000);
                 statusEl.text('Oczekiwanie na start webinaru');
                 countdownEl.text(`Start za ${minutes} min ${seconds} s`);
-                $('#aw-video').hide();
+                videoSection.toggle(videoBefore === 'show');
                 $('#aw-end-cta').hide();
                 chatSection.toggle(chatBefore === 'show');
                 if (diff <= 60000) {
@@ -118,14 +122,14 @@
             } else if (now >= start && now <= end) {
                 statusEl.text('Webinar trwa');
                 countdownEl.text('');
-                $('#aw-video').show();
+                videoSection.toggle(videoDuring === 'show');
                 $('#aw-end-cta').hide();
                 chatSection.toggle(chatDuring === 'show');
                 changeEl.hide();
             } else {
                 statusEl.text('Webinar zakończony');
                 countdownEl.text('');
-                $('#aw-video').hide();
+                videoSection.toggle(videoAfter === 'show');
                 changeEl.hide();
                 chatSection.toggle(chatAfter === 'show');
                 if (endAction === 'redirect' && endRedirect) {

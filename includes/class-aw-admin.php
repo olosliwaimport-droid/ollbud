@@ -89,7 +89,7 @@ class AW_Admin
                     </tr>
                     <tr>
                         <th scope="row"><label for="slot_interval_minutes">Interwał slotów (min)</label></th>
-                        <td><input type="number" min="5" id="slot_interval_minutes" name="slot_interval_minutes" value="<?php echo esc_attr($settings['slot_interval_minutes'] ?? 15); ?>" /></td>
+                        <td><input type="number" min="1" id="slot_interval_minutes" name="slot_interval_minutes" value="<?php echo esc_attr($settings['slot_interval_minutes'] ?? 15); ?>" /></td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="registration_days_ahead">Rejestracja na ile dni do przodu</label></th>
@@ -105,7 +105,39 @@ class AW_Admin
                     </tr>
                     <tr>
                         <th scope="row"><label for="video_seconds">Czas webinaru (sekundy)</label></th>
-                        <td><input type="number" min="60" id="video_seconds" name="video_seconds" value="<?php echo esc_attr($settings['video_seconds'] ?? 3600); ?>" /></td>
+                        <td><input type="number" min="0" id="video_seconds" name="video_seconds" value="<?php echo esc_attr($settings['video_seconds'] ?? 3600); ?>" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Widoczność wideo</th>
+                        <td>
+                            <label for="video_before">Przed startem</label>
+                            <select id="video_before" name="video_before">
+                                <option value="show" <?php selected(($settings['video_before'] ?? 'hide'), 'show'); ?>>Pokaż</option>
+                                <option value="hide" <?php selected(($settings['video_before'] ?? 'hide'), 'hide'); ?>>Ukryj</option>
+                            </select>
+                            <br />
+                            <label for="video_during">W trakcie</label>
+                            <select id="video_during" name="video_during">
+                                <option value="show" <?php selected(($settings['video_during'] ?? 'show'), 'show'); ?>>Pokaż</option>
+                                <option value="hide" <?php selected(($settings['video_during'] ?? 'show'), 'hide'); ?>>Ukryj</option>
+                            </select>
+                            <br />
+                            <label for="video_after">Po zakończeniu</label>
+                            <select id="video_after" name="video_after">
+                                <option value="show" <?php selected(($settings['video_after'] ?? 'hide'), 'show'); ?>>Pokaż</option>
+                                <option value="hide" <?php selected(($settings['video_after'] ?? 'hide'), 'hide'); ?>>Ukryj</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="chat_position">Położenie chatu</label></th>
+                        <td>
+                            <select id="chat_position" name="chat_position">
+                                <option value="right" <?php selected(($settings['chat_position'] ?? 'right'), 'right'); ?>>Po prawej</option>
+                                <option value="left" <?php selected(($settings['chat_position'] ?? 'right'), 'left'); ?>>Po lewej</option>
+                                <option value="bottom" <?php selected(($settings['chat_position'] ?? 'right'), 'bottom'); ?>>Poniżej wideo</option>
+                            </select>
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="room_layout">Układ pokoju</label></th>
@@ -305,11 +337,15 @@ class AW_Admin
             'mailerlite_group_id' => sanitize_text_field($raw['mailerlite_group_id'] ?? ''),
             'mailerlite_api_version' => in_array($raw['mailerlite_api_version'] ?? 'v3', ['v2', 'v3'], true) ? $raw['mailerlite_api_version'] : 'v3',
             'lead_time_minutes' => max(1, (int)($raw['lead_time_minutes'] ?? 10)),
-            'slot_interval_minutes' => max(5, (int)($raw['slot_interval_minutes'] ?? 15)),
+            'slot_interval_minutes' => max(1, (int)($raw['slot_interval_minutes'] ?? 15)),
             'registration_days_ahead' => max(1, (int)($raw['registration_days_ahead'] ?? 7)),
             'registration_page_url' => esc_url_raw($raw['registration_page_url'] ?? ''),
             'room_page_url' => esc_url_raw($raw['room_page_url'] ?? ''),
-            'video_seconds' => max(60, (int)($raw['video_seconds'] ?? 3600)),
+            'video_seconds' => max(0, (int)($raw['video_seconds'] ?? 3600)),
+            'video_before' => in_array($raw['video_before'] ?? 'hide', ['show', 'hide'], true) ? $raw['video_before'] : 'hide',
+            'video_during' => in_array($raw['video_during'] ?? 'show', ['show', 'hide'], true) ? $raw['video_during'] : 'show',
+            'video_after' => in_array($raw['video_after'] ?? 'hide', ['show', 'hide'], true) ? $raw['video_after'] : 'hide',
+            'chat_position' => in_array($raw['chat_position'] ?? 'right', ['right', 'left', 'bottom'], true) ? $raw['chat_position'] : 'right',
             'room_layout' => in_array($raw['room_layout'] ?? 'video_chat', ['video_chat', 'video_only'], true) ? $raw['room_layout'] : 'video_chat',
             'chat_before' => in_array($raw['chat_before'] ?? 'show', ['show', 'hide'], true) ? $raw['chat_before'] : 'show',
             'chat_during' => in_array($raw['chat_during'] ?? 'show', ['show', 'hide'], true) ? $raw['chat_during'] : 'show',

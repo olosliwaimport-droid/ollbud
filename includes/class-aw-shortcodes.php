@@ -95,6 +95,10 @@ class AW_Shortcodes
         $chat_before = $settings['chat_before'] ?? 'show';
         $chat_during = $settings['chat_during'] ?? 'show';
         $chat_after = $settings['chat_after'] ?? 'hide';
+        $video_before = $settings['video_before'] ?? 'hide';
+        $video_during = $settings['video_during'] ?? 'show';
+        $video_after = $settings['video_after'] ?? 'hide';
+        $chat_position = $settings['chat_position'] ?? 'right';
 
         $registration_url = $settings['registration_page_url'] ?? '';
         if ($registration_url === '') {
@@ -105,7 +109,7 @@ class AW_Shortcodes
 
         ob_start();
         ?>
-        <div class="aw-container aw-room aw-layout-<?php echo esc_attr($room_layout); ?>" data-slot="<?php echo esc_attr((string)$slot_timestamp); ?>" data-video-seconds="<?php echo esc_attr((string)$video_seconds); ?>" data-end-action="<?php echo esc_attr($end_action); ?>" data-end-redirect="<?php echo esc_url($end_redirect_url); ?>" data-chat-before="<?php echo esc_attr($chat_before); ?>" data-chat-during="<?php echo esc_attr($chat_during); ?>" data-chat-after="<?php echo esc_attr($chat_after); ?>">
+        <div class="aw-container aw-room aw-layout-<?php echo esc_attr($room_layout); ?> aw-chat-<?php echo esc_attr($chat_position); ?>" data-slot="<?php echo esc_attr((string)$slot_timestamp); ?>" data-video-seconds="<?php echo esc_attr((string)$video_seconds); ?>" data-end-action="<?php echo esc_attr($end_action); ?>" data-end-redirect="<?php echo esc_url($end_redirect_url); ?>" data-chat-before="<?php echo esc_attr($chat_before); ?>" data-chat-during="<?php echo esc_attr($chat_during); ?>" data-chat-after="<?php echo esc_attr($chat_after); ?>" data-video-before="<?php echo esc_attr($video_before); ?>" data-video-during="<?php echo esc_attr($video_during); ?>" data-video-after="<?php echo esc_attr($video_after); ?>">
             <h2>Pokój webinarowy</h2>
             <div class="aw-room-status" id="aw-room-status"></div>
             <div class="aw-countdown" id="aw-countdown"></div>
