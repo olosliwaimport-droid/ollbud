@@ -88,6 +88,14 @@ class AW_Admin
                         <td><input type="number" min="1" id="lead_time_minutes" name="lead_time_minutes" value="<?php echo esc_attr($settings['lead_time_minutes'] ?? 10); ?>" /></td>
                     </tr>
                     <tr>
+                        <th scope="row"><label for="slot_interval_minutes">Interwał slotów (min)</label></th>
+                        <td><input type="number" min="5" id="slot_interval_minutes" name="slot_interval_minutes" value="<?php echo esc_attr($settings['slot_interval_minutes'] ?? 15); ?>" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="registration_days_ahead">Rejestracja na ile dni do przodu</label></th>
+                        <td><input type="number" min="1" id="registration_days_ahead" name="registration_days_ahead" value="<?php echo esc_attr($settings['registration_days_ahead'] ?? 7); ?>" /></td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="registration_page_url">URL strony rejestracji</label></th>
                         <td><input type="url" id="registration_page_url" name="registration_page_url" value="<?php echo esc_attr($settings['registration_page_url'] ?? ''); ?>" class="regular-text" /></td>
                     </tr>
@@ -297,6 +305,8 @@ class AW_Admin
             'mailerlite_group_id' => sanitize_text_field($raw['mailerlite_group_id'] ?? ''),
             'mailerlite_api_version' => in_array($raw['mailerlite_api_version'] ?? 'v3', ['v2', 'v3'], true) ? $raw['mailerlite_api_version'] : 'v3',
             'lead_time_minutes' => max(1, (int)($raw['lead_time_minutes'] ?? 10)),
+            'slot_interval_minutes' => max(5, (int)($raw['slot_interval_minutes'] ?? 15)),
+            'registration_days_ahead' => max(1, (int)($raw['registration_days_ahead'] ?? 7)),
             'registration_page_url' => esc_url_raw($raw['registration_page_url'] ?? ''),
             'room_page_url' => esc_url_raw($raw['room_page_url'] ?? ''),
             'video_seconds' => max(60, (int)($raw['video_seconds'] ?? 3600)),

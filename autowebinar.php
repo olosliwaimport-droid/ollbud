@@ -74,6 +74,8 @@ function aw_activate_plugin(): void
             'mailerlite_group_id' => '',
             'mailerlite_api_version' => 'v3',
             'lead_time_minutes' => 10,
+            'slot_interval_minutes' => 15,
+            'registration_days_ahead' => 7,
             'registration_page_url' => '',
             'room_page_url' => '',
             'video_seconds' => 3600,
@@ -109,6 +111,8 @@ add_action('wp_enqueue_scripts', static function () {
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('aw_frontend_nonce'),
         'leadTimeMinutes' => (int)($settings['lead_time_minutes'] ?? 10),
+        'slotIntervalMinutes' => (int)($settings['slot_interval_minutes'] ?? 15),
+        'registrationDaysAhead' => (int)($settings['registration_days_ahead'] ?? 7),
         'videoSeconds' => (int)($settings['video_seconds'] ?? 3600),
         'labels' => [
             'selectDay' => 'Wybierz dzień',

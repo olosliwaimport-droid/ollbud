@@ -1,5 +1,7 @@
 (function ($) {
     const leadTimeMs = (AWSettings.leadTimeMinutes || 10) * 60 * 1000;
+    const slotIntervalMinutes = Math.max(5, AWSettings.slotIntervalMinutes || 15);
+    const daysAhead = Math.max(1, AWSettings.registrationDaysAhead || 7);
 
     const formatDate = (date) => date.toLocaleDateString('pl-PL', { weekday: 'long', day: '2-digit', month: '2-digit' });
     const formatTime = (date) => date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
@@ -8,7 +10,7 @@
         const daySelect = $('#aw-day-select');
         daySelect.empty();
         const now = new Date();
-        for (let i = 0; i < 7; i += 1) {
+        for (let i = 0; i < daysAhead; i += 1) {
             const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, 0, 0, 0);
             const option = $('<option />').val(day.toISOString()).text(formatDate(day));
             daySelect.append(option);
@@ -24,7 +26,7 @@
         const day = new Date(dayValue);
         timeSelect.empty();
         const now = new Date();
-        for (let slot = 0; slot < 24 * 60; slot += 15) {
+        for (let slot = 0; slot < 24 * 60; slot += slotIntervalMinutes) {
             const slotDate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, slot, 0);
             if (slotDate.getTime() < now.getTime() + leadTimeMs) {
                 continue;

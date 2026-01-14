@@ -160,9 +160,10 @@ class AW_Shortcodes
             wp_send_json_error(['message' => 'Wybrany termin jest niedostępny.'], 422);
         }
 
-        $max_timestamp = $now + (7 * DAY_IN_SECONDS);
+        $days_ahead = max(1, (int)($settings['registration_days_ahead'] ?? 7));
+        $max_timestamp = $now + ($days_ahead * DAY_IN_SECONDS);
         if ($slot_timestamp > $max_timestamp) {
-            wp_send_json_error(['message' => 'Możesz wybrać termin tylko w ciągu 7 dni.'], 422);
+            wp_send_json_error(['message' => sprintf('Możesz wybrać termin tylko w ciągu %d dni.', $days_ahead)], 422);
         }
 
         global $wpdb;
