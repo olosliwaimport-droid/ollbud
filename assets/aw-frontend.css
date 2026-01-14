@@ -103,6 +103,21 @@
     color: var(--aw-navy);
 }
 
+.aw-room-content {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.aw-layout-video_only .aw-room-content {
+    grid-template-columns: 1fr;
+}
+
+.aw-layout-video_only #aw-qa-section {
+    display: none;
+}
+
 .aw-qa {
     margin-top: 24px;
 }
@@ -150,6 +165,10 @@
     }
 
     .aw-slot-picker {
+        grid-template-columns: 1fr;
+    }
+
+    .aw-room-content {
         grid-template-columns: 1fr;
     }
 }

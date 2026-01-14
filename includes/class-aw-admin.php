@@ -47,6 +47,14 @@ class AW_Admin
             <form id="aw-settings-form">
                 <table class="form-table" role="presentation">
                     <tr>
+                        <th scope="row">Shortcodes</th>
+                        <td>
+                            <p><strong>Strona rejestracji:</strong> <code>[autowebinar_form]</code></p>
+                            <p><strong>Pokój webinaru:</strong> <code>[autowebinar_room]</code></p>
+                            <p class="description">Wstaw shortcody na dowolne strony i ustaw poniżej ich adresy URL (opcjonalnie).</p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="mailerlite_token">MailerLite token</label></th>
                         <td>
                             <div style="display:flex; gap:10px; align-items:center;">
@@ -73,8 +81,47 @@ class AW_Admin
                         <td><input type="number" min="1" id="lead_time_minutes" name="lead_time_minutes" value="<?php echo esc_attr($settings['lead_time_minutes'] ?? 10); ?>" /></td>
                     </tr>
                     <tr>
+                        <th scope="row"><label for="registration_page_url">URL strony rejestracji</label></th>
+                        <td><input type="url" id="registration_page_url" name="registration_page_url" value="<?php echo esc_attr($settings['registration_page_url'] ?? ''); ?>" class="regular-text" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="room_page_url">URL pokoju webinaru</label></th>
+                        <td><input type="url" id="room_page_url" name="room_page_url" value="<?php echo esc_attr($settings['room_page_url'] ?? ''); ?>" class="regular-text" /></td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="video_seconds">Czas webinaru (sekundy)</label></th>
                         <td><input type="number" min="60" id="video_seconds" name="video_seconds" value="<?php echo esc_attr($settings['video_seconds'] ?? 3600); ?>" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="room_layout">Układ pokoju</label></th>
+                        <td>
+                            <select id="room_layout" name="room_layout">
+                                <option value="video_chat" <?php selected(($settings['room_layout'] ?? 'video_chat'), 'video_chat'); ?>>Wideo + chat</option>
+                                <option value="video_only" <?php selected(($settings['room_layout'] ?? 'video_chat'), 'video_only'); ?>>Tylko wideo</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Widoczność chatu</th>
+                        <td>
+                            <label for="chat_before">Przed startem</label>
+                            <select id="chat_before" name="chat_before">
+                                <option value="show" <?php selected(($settings['chat_before'] ?? 'show'), 'show'); ?>>Pokaż</option>
+                                <option value="hide" <?php selected(($settings['chat_before'] ?? 'show'), 'hide'); ?>>Ukryj</option>
+                            </select>
+                            <br />
+                            <label for="chat_during">W trakcie</label>
+                            <select id="chat_during" name="chat_during">
+                                <option value="show" <?php selected(($settings['chat_during'] ?? 'show'), 'show'); ?>>Pokaż</option>
+                                <option value="hide" <?php selected(($settings['chat_during'] ?? 'show'), 'hide'); ?>>Ukryj</option>
+                            </select>
+                            <br />
+                            <label for="chat_after">Po zakończeniu</label>
+                            <select id="chat_after" name="chat_after">
+                                <option value="show" <?php selected(($settings['chat_after'] ?? 'hide'), 'show'); ?>>Pokaż</option>
+                                <option value="hide" <?php selected(($settings['chat_after'] ?? 'hide'), 'hide'); ?>>Ukryj</option>
+                            </select>
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="video_provider">Provider wideo</label></th>
@@ -195,7 +242,13 @@ class AW_Admin
             'mailerlite_group_id' => sanitize_text_field($raw['mailerlite_group_id'] ?? ''),
             'mailerlite_api_version' => in_array($raw['mailerlite_api_version'] ?? 'v3', ['v2', 'v3'], true) ? $raw['mailerlite_api_version'] : 'v3',
             'lead_time_minutes' => max(1, (int)($raw['lead_time_minutes'] ?? 10)),
+            'registration_page_url' => esc_url_raw($raw['registration_page_url'] ?? ''),
+            'room_page_url' => esc_url_raw($raw['room_page_url'] ?? ''),
             'video_seconds' => max(60, (int)($raw['video_seconds'] ?? 3600)),
+            'room_layout' => in_array($raw['room_layout'] ?? 'video_chat', ['video_chat', 'video_only'], true) ? $raw['room_layout'] : 'video_chat',
+            'chat_before' => in_array($raw['chat_before'] ?? 'show', ['show', 'hide'], true) ? $raw['chat_before'] : 'show',
+            'chat_during' => in_array($raw['chat_during'] ?? 'show', ['show', 'hide'], true) ? $raw['chat_during'] : 'show',
+            'chat_after' => in_array($raw['chat_after'] ?? 'hide', ['show', 'hide'], true) ? $raw['chat_after'] : 'hide',
             'video_provider' => in_array($raw['video_provider'] ?? 'wistia', ['wistia', 'vimeo', 'self', 'custom'], true) ? $raw['video_provider'] : 'wistia',
             'video_source' => sanitize_text_field($raw['video_source'] ?? ''),
             'video_iframe_embed' => wp_kses($decoded_iframe, $allowed_iframe),

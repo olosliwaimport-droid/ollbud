@@ -86,6 +86,9 @@
         const videoSeconds = parseInt(room.data('video-seconds'), 10);
         const endAction = room.data('end-action');
         const endRedirect = room.data('end-redirect');
+        const chatBefore = room.data('chat-before') || 'show';
+        const chatDuring = room.data('chat-during') || 'show';
+        const chatAfter = room.data('chat-after') || 'hide';
 
         const updateRoomState = () => {
             const now = Date.now();
@@ -94,6 +97,7 @@
             const countdownEl = $('#aw-countdown');
             const statusEl = $('#aw-room-status');
             const changeEl = $('#aw-change-slot');
+            const chatSection = $('#aw-qa-section');
 
             if (now < start) {
                 const diff = start - now;
@@ -103,6 +107,7 @@
                 countdownEl.text(`Start za ${minutes} min ${seconds} s`);
                 $('#aw-video').hide();
                 $('#aw-end-cta').hide();
+                chatSection.toggle(chatBefore === 'show');
                 if (diff <= 60000) {
                     changeEl.hide();
                 } else {
@@ -113,12 +118,14 @@
                 countdownEl.text('');
                 $('#aw-video').show();
                 $('#aw-end-cta').hide();
+                chatSection.toggle(chatDuring === 'show');
                 changeEl.hide();
             } else {
                 statusEl.text('Webinar zakończony');
                 countdownEl.text('');
                 $('#aw-video').hide();
                 changeEl.hide();
+                chatSection.toggle(chatAfter === 'show');
                 if (endAction === 'redirect' && endRedirect) {
                     window.location.href = endRedirect;
                 } else {

@@ -91,20 +91,39 @@ class AW_Shortcodes
         $end_redirect_url = $settings['end_redirect_url'] ?? '';
         $cta_text = $settings['cta_text'] ?? 'Dołącz do oferty';
         $cta_url = $settings['cta_url'] ?? '';
+        $room_layout = $settings['room_layout'] ?? 'video_chat';
+        $chat_before = $settings['chat_before'] ?? 'show';
+        $chat_during = $settings['chat_during'] ?? 'show';
+        $chat_after = $settings['chat_after'] ?? 'hide';
+
+        $registration_url = $settings['registration_page_url'] ?? '';
+        if ($registration_url === '') {
+            $registration_url = home_url('/');
+        }
 
         $video_markup = $this->render_video($settings);
 
         ob_start();
         ?>
-        <div class="aw-container aw-room" data-slot="<?php echo esc_attr((string)$slot_timestamp); ?>" data-video-seconds="<?php echo esc_attr((string)$video_seconds); ?>" data-end-action="<?php echo esc_attr($end_action); ?>" data-end-redirect="<?php echo esc_url($end_redirect_url); ?>">
+        <div class="aw-container aw-room aw-layout-<?php echo esc_attr($room_layout); ?>" data-slot="<?php echo esc_attr((string)$slot_timestamp); ?>" data-video-seconds="<?php echo esc_attr((string)$video_seconds); ?>" data-end-action="<?php echo esc_attr($end_action); ?>" data-end-redirect="<?php echo esc_url($end_redirect_url); ?>" data-chat-before="<?php echo esc_attr($chat_before); ?>" data-chat-during="<?php echo esc_attr($chat_during); ?>" data-chat-after="<?php echo esc_attr($chat_after); ?>">
             <h2>Pokój webinarowy</h2>
             <div class="aw-room-status" id="aw-room-status"></div>
             <div class="aw-countdown" id="aw-countdown"></div>
             <div class="aw-change-slot" id="aw-change-slot">
-                <a class="aw-link" href="<?php echo esc_url(home_url('/?t=' . $token)); ?>">Zmień termin</a>
+                <a class="aw-link" href="<?php echo esc_url(add_query_arg('t', $token, $registration_url)); ?>">Zmień termin</a>
             </div>
-            <div class="aw-video" id="aw-video" style="display:none;">
-                <?php echo $video_markup; ?>
+            <div class="aw-room-content">
+                <div class="aw-video" id="aw-video" style="display:none;">
+                    <?php echo $video_markup; ?>
+                </div>
+                <div class="aw-qa" id="aw-qa-section">
+                    <h3>Pytania i odpowiedzi</h3>
+                    <div class="aw-qa-list" id="aw-qa-list"></div>
+                    <form class="aw-qa-form" id="aw-qa-form">
+                        <textarea id="aw-question" placeholder="Zadaj pytanie"></textarea>
+                        <button type="submit" class="aw-button">Wyślij pytanie</button>
+                    </form>
+                </div>
             </div>
             <div class="aw-end-cta" id="aw-end-cta" style="display:none;">
                 <?php if ($end_action === 'cta') : ?>
@@ -114,14 +133,6 @@ class AW_Shortcodes
                 <?php else : ?>
                     <a class="aw-button" href="<?php echo esc_url($end_redirect_url); ?>">Przejdź dalej</a>
                 <?php endif; ?>
-            </div>
-            <div class="aw-qa">
-                <h3>Pytania i odpowiedzi</h3>
-                <div class="aw-qa-list" id="aw-qa-list"></div>
-                <form class="aw-qa-form" id="aw-qa-form">
-                    <textarea id="aw-question" placeholder="Zadaj pytanie"></textarea>
-                    <button type="submit" class="aw-button">Wyślij pytanie</button>
-                </form>
             </div>
             <input type="hidden" id="aw-room-token" value="<?php echo esc_attr($token); ?>" />
         </div>
@@ -174,7 +185,11 @@ class AW_Shortcodes
             wp_send_json_error(['message' => 'Nie udało się zapisać rejestracji.'], 500);
         }
 
-        $room_url = home_url('/pokoj-webinarowy/?t=' . $token);
+        $room_url = $settings['room_page_url'] ?? '';
+        if ($room_url === '') {
+            $room_url = home_url('/pokoj-webinarowy/');
+        }
+        $room_url = add_query_arg('t', $token, $room_url);
         $mailerlite = AW_MailerLite::add_subscriber($settings, $email, $name, $room_url, $slot_timestamp);
         if (!$mailerlite['success']) {
             wp_send_json_error(['message' => 'Błąd MailerLite: ' . $mailerlite['message']], 500);
