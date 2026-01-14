@@ -220,7 +220,7 @@ class AW_Shortcodes
         }
 
         $settings = get_option(AW_SETTINGS_KEY, []);
-        $faq = $this->parse_faq($settings['faq_lines'] ?? '');
+        $faq = $this->parse_faq($settings['faq_items'] ?? [], $settings['faq_lines'] ?? '');
         $answer = '';
         $status = 'pending';
         foreach ($faq as $keyword => $faq_answer) {
@@ -301,9 +301,17 @@ class AW_Shortcodes
         return '<div class="aw-video-placeholder">Wideo zostanie wyświetlone o czasie webinaru.</div>';
     }
 
-    private function parse_faq(string $lines): array
+    private function parse_faq(array $faq_items, string $lines): array
     {
         $faq = [];
+        foreach ($faq_items as $item) {
+            $keyword = trim((string)($item['keyword'] ?? ''));
+            $answer = trim((string)($item['answer'] ?? ''));
+            if ($keyword !== '' && $answer !== '') {
+                $faq[$keyword] = $answer;
+            }
+        }
+
         $rows = preg_split('/\r\n|\r|\n/', $lines);
         foreach ($rows as $row) {
             $parts = array_map('trim', explode('|', (string)$row, 2));

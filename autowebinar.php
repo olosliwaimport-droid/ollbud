@@ -88,6 +88,7 @@ function aw_activate_plugin(): void
             'end_redirect_url' => '',
             'cta_text' => 'Dołącz do oferty',
             'cta_url' => '',
+            'faq_items' => [],
             'faq_lines' => "",
         ];
         add_option(AW_SETTINGS_KEY, $defaults);

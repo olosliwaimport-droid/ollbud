@@ -21,6 +21,7 @@ class AW_Admin
         add_action('admin_menu', [$this, 'register_menu']);
         add_action('wp_ajax_aw_save_settings', [$this, 'handle_save_settings']);
         add_action('wp_ajax_aw_admin_answer', [$this, 'handle_admin_answer']);
+        add_action('admin_post_aw_save_faq', [$this, 'handle_save_faq']);
     }
 
     public function register_menu(): void
@@ -33,14 +34,20 @@ class AW_Admin
             [$this, 'render_settings_page'],
             'dashicons-video-alt3'
         );
+
+        add_submenu_page(
+            'autowebinar',
+            'FAQ i pytania',
+            'FAQ i pytania',
+            'manage_options',
+            'autowebinar-faq',
+            [$this, 'render_faq_page']
+        );
     }
 
     public function render_settings_page(): void
     {
         $settings = get_option(AW_SETTINGS_KEY, []);
-        global $wpdb;
-        $questions_table = $wpdb->prefix . AW_TABLE_QUESTIONS;
-        $questions = $wpdb->get_results("SELECT * FROM {$questions_table} ORDER BY created_at DESC LIMIT 50");
         ?>
         <div class="wrap">
             <h1>Ustawienia webinaru</h1>
@@ -179,14 +186,63 @@ class AW_Admin
                 </p>
             </form>
 
+        </div>
+        <?php
+    }
+
+    public function render_faq_page(): void
+    {
+        $settings = get_option(AW_SETTINGS_KEY, []);
+        $faq_items = $settings['faq_items'] ?? [];
+        $updated = isset($_GET['updated']) ? (int)$_GET['updated'] : 0;
+
+        global $wpdb;
+        $questions_table = $wpdb->prefix . AW_TABLE_QUESTIONS;
+        $questions = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$questions_table} WHERE status = %s ORDER BY created_at DESC", 'pending'));
+        ?>
+        <div class="wrap">
+            <h1>FAQ i pytania</h1>
+            <?php if ($updated === 1) : ?>
+                <div class="notice notice-success is-dismissible"><p>Zapisano FAQ.</p></div>
+            <?php endif; ?>
+            <h2>FAQ (słowa kluczowe i odpowiedzi)</h2>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <?php wp_nonce_field('aw_save_faq', 'aw_faq_nonce'); ?>
+                <input type="hidden" name="action" value="aw_save_faq" />
+                <table class="widefat striped">
+                    <thead>
+                        <tr>
+                            <th>Słowo kluczowe</th>
+                            <th>Automatyczna odpowiedź</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($faq_items)) : ?>
+                            <?php foreach ($faq_items as $item) : ?>
+                                <tr>
+                                    <td><input type="text" name="faq_keyword[]" value="<?php echo esc_attr($item['keyword'] ?? ''); ?>" class="regular-text" /></td>
+                                    <td><textarea name="faq_answer[]" rows="2" style="width:100%;"><?php echo esc_textarea($item['answer'] ?? ''); ?></textarea></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                        <tr>
+                            <td><input type="text" name="faq_keyword[]" value="" class="regular-text" placeholder="Nowe słowo kluczowe" /></td>
+                            <td><textarea name="faq_answer[]" rows="2" style="width:100%;" placeholder="Nowa odpowiedź"></textarea></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p>
+                    <button type="submit" class="button button-primary">Zapisz FAQ</button>
+                </p>
+            </form>
+
             <hr />
-            <h2>Q&A</h2>
+            <h2>Pytania bez odpowiedzi</h2>
             <table class="widefat striped">
                 <thead>
                     <tr>
                         <th>Pytanie</th>
                         <th>Email</th>
-                        <th>Status</th>
                         <th>Odpowiedź</th>
                     </tr>
                 </thead>
@@ -196,15 +252,14 @@ class AW_Admin
                         <tr>
                             <td><?php echo esc_html($question->question); ?></td>
                             <td><?php echo esc_html($question->email); ?></td>
-                            <td><?php echo esc_html($question->status); ?></td>
                             <td>
-                                <textarea class="aw-answer" data-question-id="<?php echo esc_attr((string)$question->id); ?>" rows="2" style="width:100%;"><?php echo esc_textarea($question->answer ?? ''); ?></textarea>
-                                <button class="button aw-answer-submit" data-question-id="<?php echo esc_attr((string)$question->id); ?>">Zapisz odpowiedź</button>
+                                <textarea class="aw-answer" data-question-id="<?php echo esc_attr((string)$question->id); ?>" rows="2" style="width:100%;"></textarea>
+                                <button class="button aw-answer-submit" data-question-id="<?php echo esc_attr((string)$question->id); ?>">Wyślij odpowiedź</button>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else : ?>
-                    <tr><td colspan="4">Brak pytań.</td></tr>
+                    <tr><td colspan="3">Brak pytań oczekujących.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>
@@ -281,7 +336,7 @@ class AW_Admin
 
         global $wpdb;
         $questions_table = $wpdb->prefix . AW_TABLE_QUESTIONS;
-        $wpdb->update(
+        $updated = $wpdb->update(
             $questions_table,
             [
                 'answer' => $answer,
@@ -293,7 +348,66 @@ class AW_Admin
             ['%d']
         );
 
+        if ($updated !== false) {
+            $question = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$questions_table} WHERE id = %d", $question_id));
+            if ($question && !empty($question->email)) {
+                $settings = get_option(AW_SETTINGS_KEY, []);
+                $room_url = $settings['room_page_url'] ?? '';
+                if ($room_url === '') {
+                    $room_url = home_url('/pokoj-webinarowy/');
+                }
+                $room_url = add_query_arg('t', $question->reg_token, $room_url);
+                $subject = 'Odpowiedź na Twoje pytanie o webinar';
+                $message = sprintf(
+                    "Dziękujemy za pytanie!%s%sPytanie:%s%s%sOdpowiedź:%s%s%sWejście do pokoju:%s%s",
+                    PHP_EOL,
+                    PHP_EOL,
+                    PHP_EOL,
+                    $question->question,
+                    PHP_EOL,
+                    PHP_EOL,
+                    $question->answer,
+                    PHP_EOL,
+                    PHP_EOL,
+                    PHP_EOL,
+                    $room_url
+                );
+                wp_mail($question->email, $subject, $message);
+            }
+        }
+
         wp_send_json_success(['message' => 'Odpowiedź zapisana.']);
+    }
+
+    public function handle_save_faq(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Brak uprawnień.');
+        }
+
+        check_admin_referer('aw_save_faq', 'aw_faq_nonce');
+
+        $keywords = $_POST['faq_keyword'] ?? [];
+        $answers = $_POST['faq_answer'] ?? [];
+        $faq_items = [];
+
+        foreach ($keywords as $index => $keyword) {
+            $keyword_clean = sanitize_text_field($keyword);
+            $answer_clean = sanitize_textarea_field($answers[$index] ?? '');
+            if ($keyword_clean !== '' && $answer_clean !== '') {
+                $faq_items[] = [
+                    'keyword' => $keyword_clean,
+                    'answer' => $answer_clean,
+                ];
+            }
+        }
+
+        $settings = get_option(AW_SETTINGS_KEY, []);
+        $settings['faq_items'] = $faq_items;
+        update_option(AW_SETTINGS_KEY, $settings);
+
+        wp_safe_redirect(admin_url('admin.php?page=autowebinar-faq&updated=1'));
+        exit;
     }
 
     private function maybe_decode_base64(string $value): string
