@@ -1,0 +1,155 @@
+:root {
+    --aw-orange: #f39c12;
+    --aw-gold: #d4af37;
+    --aw-navy: #2c3e50;
+    --aw-bg: #f5f6fa;
+    --aw-white: #ffffff;
+}
+
+.aw-container {
+    max-width: 760px;
+    margin: 40px auto;
+    padding: 24px;
+    background: var(--aw-white);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(44, 62, 80, 0.15);
+    font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+.aw-form h2,
+.aw-room h2 {
+    color: var(--aw-navy);
+    margin-bottom: 16px;
+}
+
+.aw-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.aw-field label {
+    font-weight: 600;
+    color: var(--aw-navy);
+}
+
+.aw-field input,
+.aw-field select,
+.aw-field textarea {
+    padding: 12px 14px;
+    border: 1px solid #d0d7de;
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+.aw-slot-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.aw-actions {
+    margin-top: 10px;
+}
+
+.aw-button {
+    background: linear-gradient(135deg, var(--aw-orange), var(--aw-gold));
+    border: none;
+    color: var(--aw-white);
+    padding: 12px 24px;
+    border-radius: 999px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-block;
+    text-decoration: none;
+}
+
+.aw-button:hover {
+    opacity: 0.9;
+}
+
+.aw-message {
+    margin-top: 12px;
+    color: var(--aw-navy);
+}
+
+.aw-room-status {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--aw-navy);
+    margin-bottom: 8px;
+}
+
+.aw-countdown {
+    font-size: 16px;
+    margin-bottom: 16px;
+}
+
+.aw-video iframe,
+.aw-video video {
+    width: 100%;
+    min-height: 360px;
+    border-radius: 12px;
+    border: none;
+    background: #000;
+}
+
+.aw-video-placeholder {
+    background: #e9ecef;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    color: var(--aw-navy);
+}
+
+.aw-qa {
+    margin-top: 24px;
+}
+
+.aw-qa-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.aw-qa-item {
+    background: #f8f9fb;
+    padding: 12px;
+    border-radius: 12px;
+}
+
+.aw-qa-question {
+    margin-bottom: 6px;
+    color: var(--aw-navy);
+}
+
+.aw-qa-answer {
+    color: #4a4a4a;
+}
+
+.aw-change-slot {
+    margin-bottom: 16px;
+}
+
+.aw-link {
+    color: var(--aw-orange);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.aw-link:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+    .aw-container {
+        margin: 20px;
+        padding: 18px;
+    }
+
+    .aw-slot-picker {
+        grid-template-columns: 1fr;
+    }
+}
