@@ -94,15 +94,93 @@ class AW_Admin
                     </tr>
                     <tr>
                         <th scope="row"><label for="lead_time_minutes">Lead time (min)</label></th>
-                        <td><input type="number" min="1" id="lead_time_minutes" name="lead_time_minutes" value="<?php echo esc_attr($settings['lead_time_minutes'] ?? 10); ?>" /></td>
+                        <td>
+                            <input type="number" min="1" id="lead_time_minutes" name="lead_time_minutes" value="<?php echo esc_attr($settings['lead_time_minutes'] ?? 10); ?>" />
+                            <p class="description">Minimalny czas od teraz do najbliższego możliwego slotu.</p>
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="slot_interval_minutes">Interwał slotów (min)</label></th>
-                        <td><input type="number" min="1" id="slot_interval_minutes" name="slot_interval_minutes" value="<?php echo esc_attr($settings['slot_interval_minutes'] ?? 15); ?>" /></td>
+                        <td>
+                            <input type="number" min="1" id="slot_interval_minutes" name="slot_interval_minutes" value="<?php echo esc_attr($settings['slot_interval_minutes'] ?? 15); ?>" />
+                            <p class="description">Co ile minut mają pojawiać się godziny do wyboru.</p>
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="registration_days_ahead">Rejestracja na ile dni do przodu</label></th>
-                        <td><input type="number" min="1" id="registration_days_ahead" name="registration_days_ahead" value="<?php echo esc_attr($settings['registration_days_ahead'] ?? 7); ?>" /></td>
+                        <td>
+                            <input type="number" min="1" id="registration_days_ahead" name="registration_days_ahead" value="<?php echo esc_attr($settings['registration_days_ahead'] ?? 7); ?>" />
+                            <p class="description">Maksymalna liczba dni dostępnych do wyboru w kalendarzu.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="jit_enabled">Just-in-time sloty</label></th>
+                        <td>
+                            <select id="jit_enabled" name="jit_enabled">
+                                <option value="yes" <?php selected(($settings['jit_enabled'] ?? 'yes'), 'yes'); ?>>Włączone</option>
+                                <option value="no" <?php selected(($settings['jit_enabled'] ?? 'yes'), 'no'); ?>>Wyłączone</option>
+                            </select>
+                            <p class="description">Jeśli włączone, domyślnie pokaże tylko najbliższy termin i przycisk „Pokaż inne”.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="jit_minutes">Najbliższy termin (min)</label></th>
+                        <td>
+                            <input type="number" min="1" id="jit_minutes" name="jit_minutes" value="<?php echo esc_attr($settings['jit_minutes'] ?? 15); ?>" />
+                            <p class="description">Ile minut od teraz uznać za „najbliższy termin”.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="timezone_mode">Strefa czasowa</label></th>
+                        <td>
+                            <select id="timezone_mode" name="timezone_mode">
+                                <option value="auto" <?php selected(($settings['timezone_mode'] ?? 'auto'), 'auto'); ?>>Auto-detekcja</option>
+                                <option value="select" <?php selected(($settings['timezone_mode'] ?? 'auto'), 'select'); ?>>Ręczny wybór na formularzu</option>
+                                <option value="auto_select" <?php selected(($settings['timezone_mode'] ?? 'auto'), 'auto_select'); ?>>Auto + możliwość zmiany</option>
+                            </select>
+                            <p class="description">Określa, czy użytkownik ma wybrać strefę czasową ręcznie.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="timezone_default">Domyślna strefa czasowa</label></th>
+                        <td>
+                            <input type="text" id="timezone_default" name="timezone_default" value="<?php echo esc_attr($settings['timezone_default'] ?? wp_timezone_string()); ?>" class="regular-text" />
+                            <p class="description">Użyj formatu IANA, np. Europe/Warsaw.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="deadline_enabled">Deadline funnel</label></th>
+                        <td>
+                            <select id="deadline_enabled" name="deadline_enabled">
+                                <option value="yes" <?php selected(($settings['deadline_enabled'] ?? 'no'), 'yes'); ?>>Włączone</option>
+                                <option value="no" <?php selected(($settings['deadline_enabled'] ?? 'no'), 'no'); ?>>Wyłączone</option>
+                            </select>
+                            <p class="description">Uruchamia nieprzekraczalny deadline oferty po starcie webinaru lub obejrzeniu X%.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="deadline_minutes">Czas deadline (min)</label></th>
+                        <td>
+                            <input type="number" min="1" id="deadline_minutes" name="deadline_minutes" value="<?php echo esc_attr($settings['deadline_minutes'] ?? 30); ?>" />
+                            <p class="description">Ile minut trwa oferta od momentu wyzwolenia.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="deadline_trigger">Wyzwalacz deadline</label></th>
+                        <td>
+                            <select id="deadline_trigger" name="deadline_trigger">
+                                <option value="after_start" <?php selected(($settings['deadline_trigger'] ?? 'after_start'), 'after_start'); ?>>Po starcie webinaru</option>
+                                <option value="after_watch" <?php selected(($settings['deadline_trigger'] ?? 'after_start'), 'after_watch'); ?>>Po obejrzeniu X%</option>
+                            </select>
+                            <p class="description">Gdy ustawione „Po obejrzeniu X%”, zadziała tylko dla wideo self-hosted.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="deadline_watch_percent">Próg obejrzenia (%)</label></th>
+                        <td>
+                            <input type="number" min="1" max="100" id="deadline_watch_percent" name="deadline_watch_percent" value="<?php echo esc_attr($settings['deadline_watch_percent'] ?? 50); ?>" />
+                            <p class="description">Procent wideo wymagany do uruchomienia deadline.</p>
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="registration_page_url">URL strony rejestracji</label></th>
@@ -431,6 +509,14 @@ class AW_Admin
             'mailerlite_token' => sanitize_text_field($decoded_token),
             'mailerlite_group_id' => sanitize_text_field($raw['mailerlite_group_id'] ?? ''),
             'mailerlite_api_version' => in_array($raw['mailerlite_api_version'] ?? 'v3', ['v2', 'v3'], true) ? $raw['mailerlite_api_version'] : 'v3',
+            'jit_enabled' => ($raw['jit_enabled'] ?? 'yes') === 'no' ? 'no' : 'yes',
+            'jit_minutes' => max(1, (int)($raw['jit_minutes'] ?? 15)),
+            'timezone_mode' => in_array($raw['timezone_mode'] ?? 'auto', ['auto', 'select', 'auto_select'], true) ? $raw['timezone_mode'] : 'auto',
+            'timezone_default' => sanitize_text_field($raw['timezone_default'] ?? wp_timezone_string()),
+            'deadline_enabled' => ($raw['deadline_enabled'] ?? 'no') === 'yes' ? 'yes' : 'no',
+            'deadline_minutes' => max(1, (int)($raw['deadline_minutes'] ?? 30)),
+            'deadline_trigger' => in_array($raw['deadline_trigger'] ?? 'after_start', ['after_start', 'after_watch'], true) ? $raw['deadline_trigger'] : 'after_start',
+            'deadline_watch_percent' => min(100, max(1, (int)($raw['deadline_watch_percent'] ?? 50))),
             'lead_time_minutes' => max(1, (int)($raw['lead_time_minutes'] ?? 10)),
             'slot_interval_minutes' => max(1, (int)($raw['slot_interval_minutes'] ?? 15)),
             'registration_days_ahead' => max(1, (int)($raw['registration_days_ahead'] ?? 7)),

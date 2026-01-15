@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Autowebinar
  * Description: Kompletny system webinarowy z rejestracją, pokojem oraz Q&A.
- * Version: 1.0.3
+ * Version: 1.0.4
  * Author: Autowebinar
  * Requires PHP: 8.3
  * Requires at least: 6.9
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('AW_PLUGIN_VERSION', '1.0.3');
+define('AW_PLUGIN_VERSION', '1.0.4');
 define('AW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AW_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -73,6 +73,14 @@ function aw_activate_plugin(): void
             'mailerlite_token' => '',
             'mailerlite_group_id' => '',
             'mailerlite_api_version' => 'v3',
+            'jit_enabled' => 'yes',
+            'jit_minutes' => 15,
+            'timezone_mode' => 'auto',
+            'timezone_default' => wp_timezone_string(),
+            'deadline_enabled' => 'no',
+            'deadline_minutes' => 30,
+            'deadline_trigger' => 'after_start',
+            'deadline_watch_percent' => 50,
             'lead_time_minutes' => 10,
             'slot_interval_minutes' => 15,
             'registration_days_ahead' => 7,
@@ -119,6 +127,16 @@ add_action('wp_enqueue_scripts', static function () {
         'registrationDaysAhead' => (int)($settings['registration_days_ahead'] ?? 7),
         'videoSeconds' => (int)($settings['video_seconds'] ?? 3600),
         'serverNow' => (int)current_time('timestamp'),
+        'timeZone' => wp_timezone_string(),
+        'timeZoneOffsetSeconds' => wp_timezone()->getOffset(new DateTime('now', wp_timezone())),
+        'jitEnabled' => ($settings['jit_enabled'] ?? 'yes') === 'yes',
+        'jitMinutes' => (int)($settings['jit_minutes'] ?? 15),
+        'timezoneMode' => $settings['timezone_mode'] ?? 'auto',
+        'timezoneDefault' => $settings['timezone_default'] ?? wp_timezone_string(),
+        'deadlineEnabled' => ($settings['deadline_enabled'] ?? 'no') === 'yes',
+        'deadlineMinutes' => (int)($settings['deadline_minutes'] ?? 30),
+        'deadlineTrigger' => $settings['deadline_trigger'] ?? 'after_start',
+        'deadlineWatchPercent' => (int)($settings['deadline_watch_percent'] ?? 50),
         'labels' => [
             'selectDay' => 'Wybierz dzień',
             'selectTime' => 'Wybierz godzinę',

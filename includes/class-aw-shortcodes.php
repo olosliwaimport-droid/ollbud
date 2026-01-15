@@ -29,6 +29,9 @@ class AW_Shortcodes
 
         add_action('wp_ajax_nopriv_aw_fetch_questions', [$this, 'handle_fetch_questions']);
         add_action('wp_ajax_aw_fetch_questions', [$this, 'handle_fetch_questions']);
+
+        add_action('wp_ajax_nopriv_aw_get_lock', [$this, 'handle_get_lock']);
+        add_action('wp_ajax_aw_get_lock', [$this, 'handle_get_lock']);
     }
 
     public function render_form(): string
@@ -49,12 +52,17 @@ class AW_Shortcodes
                     <label for="aw-email">Email</label>
                     <input type="email" id="aw-email" name="email" required />
                 </div>
+                <div class="aw-field aw-timezone-field" id="aw-timezone-field" style="display:none;">
+                    <label for="aw-timezone">Strefa czasowa</label>
+                    <select id="aw-timezone"></select>
+                </div>
                 <div class="aw-field">
                     <label>Wybierz termin</label>
                     <div class="aw-slot-picker">
                         <select id="aw-day-select" required></select>
                         <select id="aw-time-select" required></select>
                     </div>
+                    <button type="button" class="aw-link" id="aw-show-all-slots" style="display:none;">Pokaż inne terminy</button>
                 </div>
                 <input type="hidden" id="aw-slot-timestamp" name="slot_timestamp" />
                 <div class="aw-actions">
@@ -113,6 +121,7 @@ class AW_Shortcodes
             <h2>Pokój webinarowy</h2>
             <div class="aw-room-status" id="aw-room-status"></div>
             <div class="aw-countdown" id="aw-countdown"></div>
+            <div class="aw-countdown" id="aw-deadline" style="display:none;"></div>
             <div class="aw-change-slot" id="aw-change-slot">
                 <a class="aw-link" href="<?php echo esc_url(add_query_arg('t', $token, $registration_url)); ?>">Zmień termin</a>
             </div>
@@ -172,6 +181,20 @@ class AW_Shortcodes
 
         global $wpdb;
         $registrations_table = $wpdb->prefix . AW_TABLE_REGISTRATIONS;
+        $existing = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$registrations_table} WHERE email = %s ORDER BY created_at DESC LIMIT 1", $email));
+        if ($existing) {
+            $room_url = $settings['room_page_url'] ?? '';
+            if ($room_url === '') {
+                $room_url = home_url('/pokoj-webinarowy/');
+            }
+            $room_url = add_query_arg('t', $existing->token, $room_url);
+            wp_send_json_success([
+                'message' => 'Jesteś już zapisany. Przekierowuję do pokoju.',
+                'redirect' => $room_url,
+                'token' => $existing->token,
+            ]);
+        }
+
         $token = wp_generate_password(32, false, false);
 
         $inserted = $wpdb->insert(
@@ -203,6 +226,38 @@ class AW_Shortcodes
         wp_send_json_success([
             'message' => 'Rejestracja zakończona sukcesem.',
             'redirect' => $room_url,
+            'token' => $token,
+        ]);
+    }
+
+    public function handle_get_lock(): void
+    {
+        check_ajax_referer('aw_frontend_nonce', 'nonce');
+
+        $token = sanitize_text_field($_POST['token'] ?? '');
+        if ($token === '') {
+            wp_send_json_error(['message' => 'Brak tokenu.'], 422);
+        }
+
+        global $wpdb;
+        $registrations_table = $wpdb->prefix . AW_TABLE_REGISTRATIONS;
+        $registration = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$registrations_table} WHERE token = %s", $token));
+        if (!$registration) {
+            wp_send_json_error(['message' => 'Brak rejestracji.'], 404);
+        }
+
+        $settings = get_option(AW_SETTINGS_KEY, []);
+        $room_url = $settings['room_page_url'] ?? '';
+        if ($room_url === '') {
+            $room_url = home_url('/pokoj-webinarowy/');
+        }
+        $room_url = add_query_arg('t', $registration->token, $room_url);
+
+        wp_send_json_success([
+            'slot_timestamp' => (int)$registration->slot_timestamp,
+            'room_url' => $room_url,
+            'name' => $registration->name,
+            'email' => $registration->email,
         ]);
     }
 

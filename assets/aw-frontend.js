@@ -4,41 +4,129 @@
     const daysAhead = Math.max(1, AWSettings.registrationDaysAhead || 7);
     const serverNowMs = (AWSettings.serverNow || Math.floor(Date.now() / 1000)) * 1000;
     const serverOffsetMs = serverNowMs - Date.now();
+    const jitEnabled = !!AWSettings.jitEnabled;
+    const jitMinutes = Math.max(1, AWSettings.jitMinutes || 15);
+    const timeZoneMode = AWSettings.timezoneMode || 'auto';
+    const timeZoneDefault = AWSettings.timezoneDefault || '';
 
     const getNow = () => new Date(Date.now() + serverOffsetMs);
 
-    const formatDate = (date) => date.toLocaleDateString('pl-PL', { weekday: 'long', day: '2-digit', month: '2-digit' });
-    const formatTime = (date) => date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+    const getSavedTimeZone = () => localStorage.getItem('aw_timezone') || '';
+
+    const setSavedTimeZone = (tz) => {
+        if (tz) {
+            localStorage.setItem('aw_timezone', tz);
+        }
+    };
+
+    const detectTimeZone = () => {
+        if (Intl?.DateTimeFormat) {
+            return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        }
+        return '';
+    };
+
+    const resolveTimeZone = () => {
+        const saved = getSavedTimeZone();
+        if (saved) {
+            return saved;
+        }
+        const detected = detectTimeZone();
+        return detected || timeZoneDefault;
+    };
+
+    let selectedTimeZone = resolveTimeZone();
+
+    const formatDate = (date) => new Intl.DateTimeFormat('pl-PL', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+        timeZone: selectedTimeZone || undefined,
+    }).format(date);
+
+    const formatTime = (date) => new Intl.DateTimeFormat('pl-PL', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: selectedTimeZone || undefined,
+    }).format(date);
+
+    const formatDayValue = (date) => {
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            timeZone: selectedTimeZone || 'UTC',
+        });
+        return formatter.format(date);
+    };
+
+    const getTimeZoneOffsetMinutes = (date, tz) => {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        });
+        const parts = formatter.formatToParts(date).reduce((acc, part) => {
+            if (part.type !== 'literal') {
+                acc[part.type] = part.value;
+            }
+            return acc;
+        }, {});
+        const iso = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}Z`;
+        const utcTime = Date.parse(iso);
+        return (utcTime - date.getTime()) / 60000;
+    };
+
+    const toEpochMs = (dayValue, minutesFromMidnight) => {
+        const [year, month, day] = dayValue.split('-').map((value) => parseInt(value, 10));
+        const hours = Math.floor(minutesFromMidnight / 60);
+        const minutes = minutesFromMidnight % 60;
+        if (!selectedTimeZone) {
+            return new Date(year, month - 1, day, hours, minutes, 0).getTime();
+        }
+        const utcMs = Date.UTC(year, month - 1, day, hours, minutes, 0);
+        const offsetMinutes = getTimeZoneOffsetMinutes(new Date(utcMs), selectedTimeZone);
+        return utcMs - offsetMinutes * 60000;
+    };
 
     const buildDayOptions = () => {
         const daySelect = $('#aw-day-select');
         daySelect.empty();
         const now = getNow();
         for (let i = 0; i < daysAhead; i += 1) {
-            const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, 0, 0, 0);
-            const option = $('<option />').val(day.toISOString()).text(formatDate(day));
+            const day = new Date(now.getTime() + i * 86400000);
+            const option = $('<option />').val(formatDayValue(day)).text(formatDate(day));
             daySelect.append(option);
         }
     };
 
-    const buildTimeOptions = () => {
+    const buildTimeOptions = (showAll = false) => {
         const timeSelect = $('#aw-time-select');
         const dayValue = $('#aw-day-select').val();
         if (!dayValue) {
             return;
         }
-        const day = new Date(dayValue);
         timeSelect.empty();
         const now = getNow();
+        let added = 0;
         for (let slot = 0; slot < 24 * 60; slot += slotIntervalMinutes) {
-            const slotDate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, slot, 0);
-            if (slotDate.getTime() < now.getTime() + leadTimeMs) {
+            const slotMs = toEpochMs(dayValue, slot);
+            if (slotMs < now.getTime() + leadTimeMs) {
                 continue;
             }
             const option = $('<option />')
-                .val(slotDate.getTime().toString())
-                .text(formatTime(slotDate));
+                .val(slotMs.toString())
+                .text(formatTime(new Date(slotMs)));
             timeSelect.append(option);
+            added += 1;
+            if (jitEnabled && !showAll && added >= 1) {
+                break;
+            }
         }
 
         if (timeSelect.children().length === 0) {
@@ -52,6 +140,21 @@
     };
 
     if ($('#aw-registration-form').length) {
+        const timezoneField = $('#aw-timezone-field');
+        const timezoneSelect = $('#aw-timezone');
+        const showAllButton = $('#aw-show-all-slots');
+
+        if (timeZoneMode === 'select' || timeZoneMode === 'auto_select') {
+            if (Intl?.supportedValuesOf) {
+                const zones = Intl.supportedValuesOf('timeZone');
+                zones.forEach((tz) => {
+                    timezoneSelect.append($('<option />').val(tz).text(tz));
+                });
+            }
+            timezoneSelect.val(selectedTimeZone || timeZoneDefault);
+            timezoneField.show();
+        }
+
         buildDayOptions();
         buildTimeOptions();
         updateSlotTimestamp();
@@ -61,6 +164,36 @@
             updateSlotTimestamp();
         });
         $('#aw-time-select').on('change', updateSlotTimestamp);
+        if (jitEnabled) {
+            showAllButton.show();
+            showAllButton.on('click', () => {
+                buildTimeOptions(true);
+                updateSlotTimestamp();
+                showAllButton.hide();
+            });
+        }
+
+        timezoneSelect.on('change', () => {
+            selectedTimeZone = timezoneSelect.val();
+            setSavedTimeZone(selectedTimeZone);
+            buildDayOptions();
+            buildTimeOptions();
+            updateSlotTimestamp();
+        });
+
+        const existingToken = localStorage.getItem('aw_token') || '';
+        if (existingToken) {
+            $.post(AWSettings.ajaxUrl, {
+                action: 'aw_get_lock',
+                nonce: AWSettings.nonce,
+                token: existingToken,
+            }).done((response) => {
+                $('#aw-form-message').text('Masz już przypisany termin. Przekierowuję do pokoju.');
+                if (response.data?.room_url) {
+                    window.location.href = response.data.room_url;
+                }
+            });
+        }
 
         $('#aw-registration-form').on('submit', function (event) {
             event.preventDefault();
@@ -75,6 +208,10 @@
             $.post(AWSettings.ajaxUrl, payload)
                 .done((response) => {
                     $('#aw-form-message').text(response.data.message || 'Zapisano.');
+                    if (response.data.token) {
+                        localStorage.setItem('aw_token', response.data.token);
+                        document.cookie = `aw_token=${response.data.token}; path=/; max-age=2592000`;
+                    }
                     if (response.data.redirect) {
                         window.location.href = response.data.redirect;
                     }
@@ -99,6 +236,13 @@
         const videoDuring = room.data('video-during') || 'show';
         const videoAfter = room.data('video-after') || 'hide';
         const videoEmbed = $('.aw-video-embed');
+        const deadlineEnabled = !!AWSettings.deadlineEnabled;
+        const deadlineMinutes = Math.max(1, AWSettings.deadlineMinutes || 30);
+        const deadlineTrigger = AWSettings.deadlineTrigger || 'after_start';
+        const deadlineWatchPercent = Math.min(100, Math.max(1, AWSettings.deadlineWatchPercent || 50));
+        const deadlineEl = $('#aw-deadline');
+        const roomToken = $('#aw-room-token').val() || 'global';
+        const deadlineKey = `aw_deadline_${roomToken}`;
 
         const formatCountdown = (diffMs) => {
             const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
@@ -175,6 +319,48 @@
             }
         };
 
+        const getDeadlineEnd = () => {
+            const stored = localStorage.getItem(deadlineKey);
+            if (stored) {
+                return parseInt(stored, 10);
+            }
+            return 0;
+        };
+
+        const setDeadlineEnd = (startMs) => {
+            const deadlineEnd = startMs + deadlineMinutes * 60 * 1000;
+            localStorage.setItem(deadlineKey, deadlineEnd.toString());
+            return deadlineEnd;
+        };
+
+        const ensureDeadline = (startMs) => {
+            const existing = getDeadlineEnd();
+            if (existing > 0) {
+                return existing;
+            }
+            return setDeadlineEnd(startMs);
+        };
+
+        const updateDeadlineCountdown = () => {
+            if (!deadlineEnabled) {
+                deadlineEl.hide();
+                return;
+            }
+            const end = getDeadlineEnd();
+            if (!end) {
+                deadlineEl.hide();
+                return;
+            }
+            const now = getNow().getTime();
+            const diff = end - now;
+            if (diff <= 0) {
+                deadlineEl.text('Oferta wygasła.');
+                return;
+            }
+            deadlineEl.text(`Oferta ważna jeszcze ${formatCountdown(diff)}`);
+            deadlineEl.show();
+        };
+
         const updateRoomState = () => {
             const now = getNow().getTime();
             const start = slot;
@@ -207,6 +393,9 @@
                 countdownEl.text('');
                 if (videoDuring === 'show') {
                     buildVideoEmbed();
+                    if (deadlineEnabled && deadlineTrigger === 'after_start') {
+                        ensureDeadline(now);
+                    }
                 } else {
                     clearVideoEmbed();
                 }
@@ -231,10 +420,31 @@
                     $('#aw-end-cta').show();
                 }
             }
+
+            updateDeadlineCountdown();
         };
 
         updateRoomState();
         setInterval(updateRoomState, 1000);
+
+        if (deadlineEnabled && deadlineTrigger === 'after_watch') {
+            const observeVideo = () => {
+                const video = videoEmbed.find('video').get(0);
+                if (!video) {
+                    return;
+                }
+                video.addEventListener('timeupdate', () => {
+                    if (!video.duration) {
+                        return;
+                    }
+                    const watchedPercent = (video.currentTime / video.duration) * 100;
+                    if (watchedPercent >= deadlineWatchPercent) {
+                        ensureDeadline(getNow().getTime());
+                    }
+                });
+            };
+            observeVideo();
+        }
 
         const token = $('#aw-room-token').val();
         const fetchQuestions = () => {
