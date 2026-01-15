@@ -43,6 +43,15 @@ class AW_Admin
             'autowebinar-faq',
             [$this, 'render_faq_page']
         );
+
+        add_submenu_page(
+            'autowebinar',
+            'Uczestnicy i statystyki',
+            'Uczestnicy i statystyki',
+            'manage_options',
+            'autowebinar-registrations',
+            [$this, 'render_registrations_page']
+        );
     }
 
     public function render_settings_page(): void
@@ -300,6 +309,92 @@ class AW_Admin
                     <?php endforeach; ?>
                 <?php else : ?>
                     <tr><td colspan="3">Brak pytań oczekujących.</td></tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
+    }
+
+    public function render_registrations_page(): void
+    {
+        global $wpdb;
+        $registrations_table = $wpdb->prefix . AW_TABLE_REGISTRATIONS;
+        $questions_table = $wpdb->prefix . AW_TABLE_QUESTIONS;
+
+        $registrations = $wpdb->get_results("SELECT * FROM {$registrations_table} ORDER BY created_at DESC LIMIT 200");
+        $total_registrations = (int)$wpdb->get_var("SELECT COUNT(*) FROM {$registrations_table}");
+        $upcoming_registrations = (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$registrations_table} WHERE slot_timestamp >= %d", current_time('timestamp')));
+        $total_questions = (int)$wpdb->get_var("SELECT COUNT(*) FROM {$questions_table}");
+        $answered_questions = (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$questions_table} WHERE status = %s", 'answered'));
+        $pending_questions = (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$questions_table} WHERE status = %s", 'pending'));
+        $questions_per_registration = $total_registrations > 0 ? round($total_questions / $total_registrations, 2) : 0;
+        $answer_rate = $total_questions > 0 ? round(($answered_questions / $total_questions) * 100, 1) : 0;
+        ?>
+        <div class="wrap">
+            <h1>Uczestnicy i statystyki</h1>
+            <div class="aw-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:16px 0;">
+                <div class="aw-stat-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+                    <strong>Rejestracje</strong>
+                    <div style="font-size:22px;"><?php echo esc_html((string)$total_registrations); ?></div>
+                </div>
+                <div class="aw-stat-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+                    <strong>Nadchodzące</strong>
+                    <div style="font-size:22px;"><?php echo esc_html((string)$upcoming_registrations); ?></div>
+                </div>
+                <div class="aw-stat-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+                    <strong>Pytania</strong>
+                    <div style="font-size:22px;"><?php echo esc_html((string)$total_questions); ?></div>
+                </div>
+                <div class="aw-stat-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+                    <strong>Odpowiedziane</strong>
+                    <div style="font-size:22px;"><?php echo esc_html((string)$answered_questions); ?></div>
+                    <div style="color:#64748b;"><?php echo esc_html((string)$answer_rate); ?>%</div>
+                </div>
+                <div class="aw-stat-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+                    <strong>Bez odpowiedzi</strong>
+                    <div style="font-size:22px;"><?php echo esc_html((string)$pending_questions); ?></div>
+                </div>
+                <div class="aw-stat-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+                    <strong>Pytania / rejestrację</strong>
+                    <div style="font-size:22px;"><?php echo esc_html((string)$questions_per_registration); ?></div>
+                </div>
+            </div>
+
+            <h2>Lista uczestników</h2>
+            <table class="widefat striped">
+                <thead>
+                    <tr>
+                        <th>Imię</th>
+                        <th>Email</th>
+                        <th>Termin</th>
+                        <th>Data zapisu</th>
+                        <th>Pokój</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if (!empty($registrations)) : ?>
+                    <?php foreach ($registrations as $registration) : ?>
+                        <tr>
+                            <td><?php echo esc_html($registration->name); ?></td>
+                            <td><?php echo esc_html($registration->email); ?></td>
+                            <td><?php echo esc_html(wp_date('Y-m-d H:i', (int)$registration->slot_timestamp)); ?></td>
+                            <td><?php echo esc_html($registration->created_at); ?></td>
+                            <td>
+                                <?php
+                                $settings = get_option(AW_SETTINGS_KEY, []);
+                                $room_url = $settings['room_page_url'] ?? '';
+                                if ($room_url === '') {
+                                    $room_url = home_url('/pokoj-webinarowy/');
+                                }
+                                $room_url = add_query_arg('t', $registration->token, $room_url);
+                                ?>
+                                <a class="button button-small" href="<?php echo esc_url($room_url); ?>" target="_blank">Otwórz</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr><td colspan="5">Brak rejestracji.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>
