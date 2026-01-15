@@ -32,6 +32,15 @@ class AW_Shortcodes
 
         add_action('wp_ajax_nopriv_aw_get_lock', [$this, 'handle_get_lock']);
         add_action('wp_ajax_aw_get_lock', [$this, 'handle_get_lock']);
+
+        add_action('wp_ajax_nopriv_aw_room_view', [$this, 'handle_room_view']);
+        add_action('wp_ajax_aw_room_view', [$this, 'handle_room_view']);
+
+        add_action('wp_ajax_nopriv_aw_watch_progress', [$this, 'handle_watch_progress']);
+        add_action('wp_ajax_aw_watch_progress', [$this, 'handle_watch_progress']);
+
+        add_action('wp_ajax_nopriv_aw_download_ics', [$this, 'handle_download_ics']);
+        add_action('wp_ajax_aw_download_ics', [$this, 'handle_download_ics']);
     }
 
     public function render_form(): string
@@ -124,6 +133,11 @@ class AW_Shortcodes
             <div class="aw-countdown" id="aw-deadline" style="display:none;"></div>
             <div class="aw-change-slot" id="aw-change-slot">
                 <a class="aw-link" href="<?php echo esc_url(add_query_arg('t', $token, $registration_url)); ?>">Zmień termin</a>
+            </div>
+            <div class="aw-calendar-links" id="aw-calendar-links">
+                <a class="aw-link" href="<?php echo esc_url($this->build_google_calendar_url($slot_timestamp, $token)); ?>" target="_blank" rel="noopener">Dodaj do Google</a>
+                <span>·</span>
+                <a class="aw-link" href="<?php echo esc_url($this->build_ics_url($token)); ?>">Pobierz .ics</a>
             </div>
             <div class="aw-room-content">
                 <div class="aw-video" id="aw-video" style="display:none;">
@@ -218,10 +232,18 @@ class AW_Shortcodes
             $room_url = home_url('/pokoj-webinarowy/');
         }
         $room_url = add_query_arg('t', $token, $room_url);
-        $mailerlite = AW_MailerLite::add_subscriber($settings, $email, $name, $room_url, $slot_timestamp);
+        $mailerlite = AW_MailerLite::add_subscriber($settings, $email, $name, $room_url, $slot_timestamp, $token);
         if (!$mailerlite['success']) {
             wp_send_json_error(['message' => 'Błąd MailerLite: ' . $mailerlite['message']], 500);
         }
+
+        AW_Automations::schedule_reminders($settings, [
+            'email' => $email,
+            'name' => $name,
+            'room_url' => $room_url,
+            'slot_timestamp' => $slot_timestamp,
+            'token' => $token,
+        ]);
 
         wp_send_json_success([
             'message' => 'Rejestracja zakończona sukcesem.',
@@ -259,6 +281,103 @@ class AW_Shortcodes
             'name' => $registration->name,
             'email' => $registration->email,
         ]);
+    }
+
+    public function handle_room_view(): void
+    {
+        check_ajax_referer('aw_frontend_nonce', 'nonce');
+
+        $token = sanitize_text_field($_POST['token'] ?? '');
+        if ($token === '') {
+            wp_send_json_error(['message' => 'Brak tokenu.'], 422);
+        }
+
+        update_option('aw_room_view_' . $token, current_time('timestamp'), false);
+        wp_send_json_success(['message' => 'OK']);
+    }
+
+    public function handle_watch_progress(): void
+    {
+        check_ajax_referer('aw_frontend_nonce', 'nonce');
+
+        $token = sanitize_text_field($_POST['token'] ?? '');
+        $segment = sanitize_text_field($_POST['segment'] ?? '');
+        if ($token === '' || !in_array($segment, ['low', 'mid', 'high'], true)) {
+            wp_send_json_error(['message' => 'Brak danych.'], 422);
+        }
+
+        $key = 'aw_watch_segment_' . $token;
+        if (get_option($key)) {
+            wp_send_json_success(['message' => 'Already sent.']);
+        }
+
+        update_option($key, $segment, false);
+        AW_Automations::send_watch_followup($token, $segment);
+
+        wp_send_json_success(['message' => 'OK']);
+    }
+
+    public function handle_download_ics(): void
+    {
+        $token = sanitize_text_field($_GET['token'] ?? '');
+        if ($token === '') {
+            status_header(404);
+            exit;
+        }
+
+        global $wpdb;
+        $registrations_table = $wpdb->prefix . AW_TABLE_REGISTRATIONS;
+        $registration = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$registrations_table} WHERE token = %s", $token));
+        if (!$registration) {
+            status_header(404);
+            exit;
+        }
+
+        $settings = get_option(AW_SETTINGS_KEY, []);
+        $duration = (int)($settings['video_seconds'] ?? 3600);
+        $start = (int)$registration->slot_timestamp;
+        $end = $start + $duration;
+
+        $uid = $token . '@' . parse_url(home_url(), PHP_URL_HOST);
+        $summary = 'Webinar';
+        $description = 'Zaproszenie na webinar.';
+        $dtstart = gmdate('Ymd\\THis\\Z', $start);
+        $dtend = gmdate('Ymd\\THis\\Z', $end);
+
+        nocache_headers();
+        header('Content-Type: text/calendar; charset=utf-8');
+        header('Content-Disposition: attachment; filename=webinar.ics');
+
+        echo "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Autowebinar//PL\r\nBEGIN:VEVENT\r\nUID:{$uid}\r\nDTSTAMP:" . gmdate('Ymd\\THis\\Z') . "\r\nDTSTART:{$dtstart}\r\nDTEND:{$dtend}\r\nSUMMARY:{$summary}\r\nDESCRIPTION:{$description}\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+        exit;
+    }
+
+    private function build_ics_url(string $token): string
+    {
+        return add_query_arg([
+            'action' => 'aw_download_ics',
+            'token' => $token,
+        ], admin_url('admin-ajax.php'));
+    }
+
+    private function build_google_calendar_url(int $slot_timestamp, string $token): string
+    {
+        $settings = get_option(AW_SETTINGS_KEY, []);
+        $duration = (int)($settings['video_seconds'] ?? 3600);
+        $start = gmdate('Ymd\\THis\\Z', $slot_timestamp);
+        $end = gmdate('Ymd\\THis\\Z', $slot_timestamp + $duration);
+        $room_url = $settings['room_page_url'] ?? '';
+        if ($room_url === '') {
+            $room_url = home_url('/pokoj-webinarowy/');
+        }
+        $room_url = add_query_arg('t', $token, $room_url);
+
+        return add_query_arg([
+            'action' => 'TEMPLATE',
+            'text' => 'Webinar',
+            'dates' => $start . '/' . $end,
+            'details' => 'Link do pokoju: ' . $room_url,
+        ], 'https://calendar.google.com/calendar/render');
     }
 
     public function handle_submit_question(): void

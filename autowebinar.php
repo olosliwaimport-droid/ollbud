@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Autowebinar
  * Description: Kompletny system webinarowy z rejestracją, pokojem oraz Q&A.
- * Version: 1.0.4
+ * Version: 1.0.5
  * Author: Autowebinar
  * Requires PHP: 8.3
  * Requires at least: 6.9
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('AW_PLUGIN_VERSION', '1.0.4');
+define('AW_PLUGIN_VERSION', '1.0.5');
 define('AW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AW_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -23,6 +23,7 @@ define('AW_TABLE_REGISTRATIONS', 'aw_registrations');
 define('AW_TABLE_QUESTIONS', 'aw_questions');
 
 require_once AW_PLUGIN_DIR . 'includes/class-aw-mailerlite.php';
+require_once AW_PLUGIN_DIR . 'includes/class-aw-automations.php';
 require_once AW_PLUGIN_DIR . 'includes/class-aw-admin.php';
 require_once AW_PLUGIN_DIR . 'includes/class-aw-shortcodes.php';
 
@@ -81,6 +82,26 @@ function aw_activate_plugin(): void
             'deadline_minutes' => 30,
             'deadline_trigger' => 'after_start',
             'deadline_watch_percent' => 50,
+            'reminders_enabled' => 'yes',
+            'reminder_day_subject' => 'Webinar już jutro',
+            'reminder_day_body' => 'Przypomnienie: webinar jutro o {date}. Link: {room_url}.',
+            'reminder_hour_subject' => 'Webinar za godzinę',
+            'reminder_hour_body' => 'Start za godzinę: {room_url}.',
+            'reminder_15_subject' => 'Webinar za 15 minut',
+            'reminder_15_body' => 'Do startu zostało 15 minut: {room_url}.',
+            'reminder_5_subject' => 'Webinar za 5 minut',
+            'reminder_5_body' => 'Do startu zostało 5 minut: {room_url}.',
+            'reminder_start_subject' => 'Zaczynamy webinar',
+            'reminder_start_body' => 'Webinar właśnie się zaczyna: {room_url}.',
+            'missed_minutes' => 15,
+            'missed_subject' => 'Nie udało się dotrzeć?',
+            'missed_body' => 'Wygląda na to, że nie udało się dołączyć. Możesz wejść ponownie tutaj: {room_url}',
+            'followup_low_subject' => 'Dziękujemy za udział',
+            'followup_low_body' => 'Dzięki za udział! Zobacz powtórkę tutaj: {room_url}.',
+            'followup_mid_subject' => 'Materiały z webinaru',
+            'followup_mid_body' => 'Materiały i link: {room_url}.',
+            'followup_high_subject' => 'Oferta po webinarze',
+            'followup_high_body' => 'Dziękujemy! Oferta dostępna tutaj: {room_url}.',
             'lead_time_minutes' => 10,
             'slot_interval_minutes' => 15,
             'registration_days_ahead' => 7,
@@ -112,6 +133,7 @@ function aw_activate_plugin(): void
 add_action('plugins_loaded', static function () {
     AW_Admin::get_instance();
     AW_Shortcodes::get_instance();
+    AW_Automations::register_hooks();
 });
 
 add_action('wp_enqueue_scripts', static function () {

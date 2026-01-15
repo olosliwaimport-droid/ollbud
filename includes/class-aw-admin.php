@@ -183,6 +183,82 @@ class AW_Admin
                         </td>
                     </tr>
                     <tr>
+                        <th scope="row"><label for="reminders_enabled">Pakiet przypomnień</label></th>
+                        <td>
+                            <select id="reminders_enabled" name="reminders_enabled">
+                                <option value="yes" <?php selected(($settings['reminders_enabled'] ?? 'yes'), 'yes'); ?>>Włączony</option>
+                                <option value="no" <?php selected(($settings['reminders_enabled'] ?? 'yes'), 'no'); ?>>Wyłączony</option>
+                            </select>
+                            <p class="description">Automatyczne przypomnienia: 1 dzień, 1h, 15 min, 5 min, start.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="missed_minutes">Missed it (min)</label></th>
+                        <td>
+                            <input type="number" min="1" id="missed_minutes" name="missed_minutes" value="<?php echo esc_attr($settings['missed_minutes'] ?? 15); ?>" />
+                            <p class="description">Jeśli użytkownik nie wejdzie do pokoju do N minut po starcie, wyślij email.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Szablony przypomnień (HTML)</th>
+                        <td>
+                            <p class="description">Dostępne zmienne: {name}, {email}, {room_url}, {date}, {token}, {ics_url}, {google_calendar_url}.</p>
+                            <p><label for="reminder_day_subject">Dzień przed - temat</label></p>
+                            <input type="text" id="reminder_day_subject" name="reminder_day_subject" value="<?php echo esc_attr($settings['reminder_day_subject'] ?? ''); ?>" class="regular-text" />
+                            <p><label for="reminder_day_body">Dzień przed - treść</label></p>
+                            <textarea id="reminder_day_body" name="reminder_day_body" rows="3" class="large-text code"><?php echo esc_textarea($settings['reminder_day_body'] ?? ''); ?></textarea>
+
+                            <p><label for="reminder_hour_subject">1h - temat</label></p>
+                            <input type="text" id="reminder_hour_subject" name="reminder_hour_subject" value="<?php echo esc_attr($settings['reminder_hour_subject'] ?? ''); ?>" class="regular-text" />
+                            <p><label for="reminder_hour_body">1h - treść</label></p>
+                            <textarea id="reminder_hour_body" name="reminder_hour_body" rows="3" class="large-text code"><?php echo esc_textarea($settings['reminder_hour_body'] ?? ''); ?></textarea>
+
+                            <p><label for="reminder_15_subject">15 min - temat</label></p>
+                            <input type="text" id="reminder_15_subject" name="reminder_15_subject" value="<?php echo esc_attr($settings['reminder_15_subject'] ?? ''); ?>" class="regular-text" />
+                            <p><label for="reminder_15_body">15 min - treść</label></p>
+                            <textarea id="reminder_15_body" name="reminder_15_body" rows="3" class="large-text code"><?php echo esc_textarea($settings['reminder_15_body'] ?? ''); ?></textarea>
+
+                            <p><label for="reminder_5_subject">5 min - temat</label></p>
+                            <input type="text" id="reminder_5_subject" name="reminder_5_subject" value="<?php echo esc_attr($settings['reminder_5_subject'] ?? ''); ?>" class="regular-text" />
+                            <p><label for="reminder_5_body">5 min - treść</label></p>
+                            <textarea id="reminder_5_body" name="reminder_5_body" rows="3" class="large-text code"><?php echo esc_textarea($settings['reminder_5_body'] ?? ''); ?></textarea>
+
+                            <p><label for="reminder_start_subject">Start - temat</label></p>
+                            <input type="text" id="reminder_start_subject" name="reminder_start_subject" value="<?php echo esc_attr($settings['reminder_start_subject'] ?? ''); ?>" class="regular-text" />
+                            <p><label for="reminder_start_body">Start - treść</label></p>
+                            <textarea id="reminder_start_body" name="reminder_start_body" rows="3" class="large-text code"><?php echo esc_textarea($settings['reminder_start_body'] ?? ''); ?></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Missed it - szablon (HTML)</th>
+                        <td>
+                            <p><label for="missed_subject">Temat</label></p>
+                            <input type="text" id="missed_subject" name="missed_subject" value="<?php echo esc_attr($settings['missed_subject'] ?? ''); ?>" class="regular-text" />
+                            <p><label for="missed_body">Treść</label></p>
+                            <textarea id="missed_body" name="missed_body" rows="3" class="large-text code"><?php echo esc_textarea($settings['missed_body'] ?? ''); ?></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Follow-up po obejrzeniu (HTML)</th>
+                        <td>
+                            <p class="description">Wysyłka przy przekroczeniu progu oglądania wideo (self-hosted).</p>
+                            <p><label for="followup_low_subject">0–10% temat</label></p>
+                            <input type="text" id="followup_low_subject" name="followup_low_subject" value="<?php echo esc_attr($settings['followup_low_subject'] ?? ''); ?>" class="regular-text" />
+                            <p><label for="followup_low_body">0–10% treść</label></p>
+                            <textarea id="followup_low_body" name="followup_low_body" rows="3" class="large-text code"><?php echo esc_textarea($settings['followup_low_body'] ?? ''); ?></textarea>
+
+                            <p><label for="followup_mid_subject">10–50% temat</label></p>
+                            <input type="text" id="followup_mid_subject" name="followup_mid_subject" value="<?php echo esc_attr($settings['followup_mid_subject'] ?? ''); ?>" class="regular-text" />
+                            <p><label for="followup_mid_body">10–50% treść</label></p>
+                            <textarea id="followup_mid_body" name="followup_mid_body" rows="3" class="large-text code"><?php echo esc_textarea($settings['followup_mid_body'] ?? ''); ?></textarea>
+
+                            <p><label for="followup_high_subject">50%+ temat</label></p>
+                            <input type="text" id="followup_high_subject" name="followup_high_subject" value="<?php echo esc_attr($settings['followup_high_subject'] ?? ''); ?>" class="regular-text" />
+                            <p><label for="followup_high_body">50%+ treść</label></p>
+                            <textarea id="followup_high_body" name="followup_high_body" rows="3" class="large-text code"><?php echo esc_textarea($settings['followup_high_body'] ?? ''); ?></textarea>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="registration_page_url">URL strony rejestracji</label></th>
                         <td><input type="url" id="registration_page_url" name="registration_page_url" value="<?php echo esc_attr($settings['registration_page_url'] ?? ''); ?>" class="regular-text" /></td>
                     </tr>
@@ -517,6 +593,26 @@ class AW_Admin
             'deadline_minutes' => max(1, (int)($raw['deadline_minutes'] ?? 30)),
             'deadline_trigger' => in_array($raw['deadline_trigger'] ?? 'after_start', ['after_start', 'after_watch'], true) ? $raw['deadline_trigger'] : 'after_start',
             'deadline_watch_percent' => min(100, max(1, (int)($raw['deadline_watch_percent'] ?? 50))),
+            'reminders_enabled' => ($raw['reminders_enabled'] ?? 'yes') === 'no' ? 'no' : 'yes',
+            'reminder_day_subject' => sanitize_text_field($raw['reminder_day_subject'] ?? ''),
+            'reminder_day_body' => wp_kses_post($raw['reminder_day_body'] ?? ''),
+            'reminder_hour_subject' => sanitize_text_field($raw['reminder_hour_subject'] ?? ''),
+            'reminder_hour_body' => wp_kses_post($raw['reminder_hour_body'] ?? ''),
+            'reminder_15_subject' => sanitize_text_field($raw['reminder_15_subject'] ?? ''),
+            'reminder_15_body' => wp_kses_post($raw['reminder_15_body'] ?? ''),
+            'reminder_5_subject' => sanitize_text_field($raw['reminder_5_subject'] ?? ''),
+            'reminder_5_body' => wp_kses_post($raw['reminder_5_body'] ?? ''),
+            'reminder_start_subject' => sanitize_text_field($raw['reminder_start_subject'] ?? ''),
+            'reminder_start_body' => wp_kses_post($raw['reminder_start_body'] ?? ''),
+            'missed_minutes' => max(1, (int)($raw['missed_minutes'] ?? 15)),
+            'missed_subject' => sanitize_text_field($raw['missed_subject'] ?? ''),
+            'missed_body' => wp_kses_post($raw['missed_body'] ?? ''),
+            'followup_low_subject' => sanitize_text_field($raw['followup_low_subject'] ?? ''),
+            'followup_low_body' => wp_kses_post($raw['followup_low_body'] ?? ''),
+            'followup_mid_subject' => sanitize_text_field($raw['followup_mid_subject'] ?? ''),
+            'followup_mid_body' => wp_kses_post($raw['followup_mid_body'] ?? ''),
+            'followup_high_subject' => sanitize_text_field($raw['followup_high_subject'] ?? ''),
+            'followup_high_body' => wp_kses_post($raw['followup_high_body'] ?? ''),
             'lead_time_minutes' => max(1, (int)($raw['lead_time_minutes'] ?? 10)),
             'slot_interval_minutes' => max(1, (int)($raw['slot_interval_minutes'] ?? 15)),
             'registration_days_ahead' => max(1, (int)($raw['registration_days_ahead'] ?? 7)),

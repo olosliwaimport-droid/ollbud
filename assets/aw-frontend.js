@@ -427,24 +427,49 @@
         updateRoomState();
         setInterval(updateRoomState, 1000);
 
-        if (deadlineEnabled && deadlineTrigger === 'after_watch') {
-            const observeVideo = () => {
-                const video = videoEmbed.find('video').get(0);
-                if (!video) {
+        const triggerWatchSegment = (segment) => {
+            const key = `aw_watch_segment_${roomToken}`;
+            if (localStorage.getItem(key)) {
+                return;
+            }
+            localStorage.setItem(key, segment);
+            $.post(AWSettings.ajaxUrl, {
+                action: 'aw_watch_progress',
+                nonce: AWSettings.nonce,
+                token: roomToken,
+                segment: segment,
+            });
+        };
+
+        const observeVideo = () => {
+            const video = videoEmbed.find('video').get(0);
+            if (!video) {
+                return;
+            }
+            video.addEventListener('timeupdate', () => {
+                if (!video.duration) {
                     return;
                 }
-                video.addEventListener('timeupdate', () => {
-                    if (!video.duration) {
-                        return;
-                    }
-                    const watchedPercent = (video.currentTime / video.duration) * 100;
-                    if (watchedPercent >= deadlineWatchPercent) {
-                        ensureDeadline(getNow().getTime());
-                    }
-                });
-            };
-            observeVideo();
-        }
+                const watchedPercent = (video.currentTime / video.duration) * 100;
+                if (deadlineEnabled && deadlineTrigger === 'after_watch' && watchedPercent >= deadlineWatchPercent) {
+                    ensureDeadline(getNow().getTime());
+                }
+                if (watchedPercent >= 50) {
+                    triggerWatchSegment('high');
+                } else if (watchedPercent >= 10) {
+                    triggerWatchSegment('mid');
+                } else if (watchedPercent >= 1) {
+                    triggerWatchSegment('low');
+                }
+            });
+        };
+        observeVideo();
+
+        $.post(AWSettings.ajaxUrl, {
+            action: 'aw_room_view',
+            nonce: AWSettings.nonce,
+            token: roomToken,
+        });
 
         const token = $('#aw-room-token').val();
         const fetchQuestions = () => {

@@ -6,13 +6,13 @@ if (!defined('ABSPATH')) {
 
 class AW_MailerLite
 {
-    public static function add_subscriber(array $settings, string $email, string $name, string $room_url, int $slot_timestamp): array
+    public static function add_subscriber(array $settings, string $email, string $name, string $room_url, int $slot_timestamp, string $token): array
     {
-        $token = $settings['mailerlite_token'] ?? '';
+        $api_token = $settings['mailerlite_token'] ?? '';
         $group_id = $settings['mailerlite_group_id'] ?? '';
         $api_version = $settings['mailerlite_api_version'] ?? 'v3';
 
-        if ($token === '' || $group_id === '') {
+        if ($api_token === '' || $group_id === '') {
             return [
                 'success' => false,
                 'message' => 'Brak konfiguracji MailerLite.',
@@ -24,7 +24,11 @@ class AW_MailerLite
             'name' => $name,
             'fields' => [
                 'webinar_room_url' => $room_url,
+                'webinar_token_url' => $room_url,
+                'token_url' => $room_url,
+                'webinar_token' => $token,
                 'webinar_datetime' => wp_date('Y-m-d H:i:s', $slot_timestamp),
+                'webinar_timestamp' => (string)$slot_timestamp,
             ],
         ];
 
@@ -34,10 +38,10 @@ class AW_MailerLite
 
         if ($api_version === 'v2') {
             $endpoint = sprintf('https://api.mailerlite.com/api/v2/groups/%s/subscribers', rawurlencode($group_id));
-            $headers['X-MailerLite-ApiKey'] = $token;
+            $headers['X-MailerLite-ApiKey'] = $api_token;
         } else {
             $endpoint = 'https://connect.mailerlite.com/api/subscribers';
-            $headers['Authorization'] = 'Bearer ' . $token;
+            $headers['Authorization'] = 'Bearer ' . $api_token;
             $payload['groups'] = [$group_id];
         }
 
