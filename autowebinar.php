@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Autowebinar
  * Description: Kompletny system webinarowy z rejestracją, pokojem oraz Q&A.
- * Version: 1.0.5
+ * Version: 1.0.6
  * Author: Autowebinar
  * Requires PHP: 8.3
  * Requires at least: 6.9
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('AW_PLUGIN_VERSION', '1.0.5');
+define('AW_PLUGIN_VERSION', '1.0.6');
 define('AW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AW_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -26,6 +26,7 @@ require_once AW_PLUGIN_DIR . 'includes/class-aw-mailerlite.php';
 require_once AW_PLUGIN_DIR . 'includes/class-aw-automations.php';
 require_once AW_PLUGIN_DIR . 'includes/class-aw-admin.php';
 require_once AW_PLUGIN_DIR . 'includes/class-aw-shortcodes.php';
+require_once AW_PLUGIN_DIR . 'includes/class-aw-elementor.php';
 
 register_activation_hook(__FILE__, 'aw_activate_plugin');
 
@@ -134,6 +135,7 @@ add_action('plugins_loaded', static function () {
     AW_Admin::get_instance();
     AW_Shortcodes::get_instance();
     AW_Automations::register_hooks();
+    AW_Elementor::register();
 });
 
 add_action('wp_enqueue_scripts', static function () {
