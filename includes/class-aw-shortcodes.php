@@ -286,21 +286,24 @@ class AW_Shortcodes
         $iframe = $settings['video_iframe_embed'] ?? '';
 
         if ($provider === 'custom' && $iframe !== '') {
-            return $iframe;
+            return sprintf(
+                '<div class="aw-video-embed" data-provider="custom" data-embed="%s"></div>',
+                esc_attr(base64_encode($iframe))
+            );
         }
 
         if ($provider === 'wistia' && $source !== '') {
             $src = sprintf('https://fast.wistia.net/embed/iframe/%s', rawurlencode($source));
-            return sprintf('<iframe src="%s" allow="autoplay; fullscreen" allowfullscreen></iframe>', esc_url($src));
+            return sprintf('<div class="aw-video-embed" data-provider="iframe" data-src="%s"></div>', esc_url($src));
         }
 
         if ($provider === 'vimeo' && $source !== '') {
             $src = sprintf('https://player.vimeo.com/video/%s', rawurlencode($source));
-            return sprintf('<iframe src="%s" allow="autoplay; fullscreen" allowfullscreen></iframe>', esc_url($src));
+            return sprintf('<div class="aw-video-embed" data-provider="iframe" data-src="%s"></div>', esc_url($src));
         }
 
         if ($provider === 'self' && $source !== '') {
-            return sprintf('<video controls src="%s"></video>', esc_url($source));
+            return sprintf('<div class="aw-video-embed" data-provider="self" data-src="%s"></div>', esc_url($source));
         }
 
         return '<div class="aw-video-placeholder">Wideo zostanie wyświetlone o czasie webinaru.</div>';

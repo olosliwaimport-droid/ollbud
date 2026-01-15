@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Autowebinar
  * Description: Kompletny system webinarowy z rejestracją, pokojem oraz Q&A.
- * Version: 1.0.2
+ * Version: 1.0.3
  * Author: Autowebinar
  * Requires PHP: 8.3
  * Requires at least: 6.9
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('AW_PLUGIN_VERSION', '1.0.2');
+define('AW_PLUGIN_VERSION', '1.0.3');
 define('AW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AW_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -118,6 +118,7 @@ add_action('wp_enqueue_scripts', static function () {
         'slotIntervalMinutes' => (int)($settings['slot_interval_minutes'] ?? 15),
         'registrationDaysAhead' => (int)($settings['registration_days_ahead'] ?? 7),
         'videoSeconds' => (int)($settings['video_seconds'] ?? 3600),
+        'serverNow' => (int)current_time('timestamp'),
         'labels' => [
             'selectDay' => 'Wybierz dzień',
             'selectTime' => 'Wybierz godzinę',

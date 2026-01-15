@@ -2,6 +2,10 @@
     const leadTimeMs = (AWSettings.leadTimeMinutes || 10) * 60 * 1000;
     const slotIntervalMinutes = Math.max(1, AWSettings.slotIntervalMinutes || 15);
     const daysAhead = Math.max(1, AWSettings.registrationDaysAhead || 7);
+    const serverNowMs = (AWSettings.serverNow || Math.floor(Date.now() / 1000)) * 1000;
+    const serverOffsetMs = serverNowMs - Date.now();
+
+    const getNow = () => new Date(Date.now() + serverOffsetMs);
 
     const formatDate = (date) => date.toLocaleDateString('pl-PL', { weekday: 'long', day: '2-digit', month: '2-digit' });
     const formatTime = (date) => date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
@@ -9,7 +13,7 @@
     const buildDayOptions = () => {
         const daySelect = $('#aw-day-select');
         daySelect.empty();
-        const now = new Date();
+        const now = getNow();
         for (let i = 0; i < daysAhead; i += 1) {
             const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, 0, 0, 0);
             const option = $('<option />').val(day.toISOString()).text(formatDate(day));
@@ -25,7 +29,7 @@
         }
         const day = new Date(dayValue);
         timeSelect.empty();
-        const now = new Date();
+        const now = getNow();
         for (let slot = 0; slot < 24 * 60; slot += slotIntervalMinutes) {
             const slotDate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, slot, 0);
             if (slotDate.getTime() < now.getTime() + leadTimeMs) {
@@ -94,9 +98,85 @@
         const videoBefore = room.data('video-before') || 'hide';
         const videoDuring = room.data('video-during') || 'show';
         const videoAfter = room.data('video-after') || 'hide';
+        const videoEmbed = $('.aw-video-embed');
+
+        const formatCountdown = (diffMs) => {
+            const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+            const days = Math.floor(totalSeconds / 86400);
+            const hours = Math.floor((totalSeconds % 86400) / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const parts = [];
+            if (days > 0) {
+                parts.push(`${days} d`);
+            }
+            if (hours > 0 || days > 0) {
+                parts.push(`${hours} h`);
+            }
+            parts.push(`${minutes} min`);
+            parts.push(`${seconds} s`);
+            return parts.join(' ');
+        };
+
+        const buildVideoEmbed = () => {
+            if (!videoEmbed.length) {
+                return;
+            }
+            if (videoEmbed.children().length) {
+                return;
+            }
+            const provider = videoEmbed.data('provider');
+            if (provider === 'custom') {
+                const encoded = videoEmbed.data('embed') || '';
+                try {
+                    const decoded = decodeURIComponent(escape(atob(encoded)));
+                    videoEmbed.html(decoded);
+                } catch (e) {
+                    videoEmbed.html('');
+                }
+                return;
+            }
+            if (provider === 'iframe') {
+                const src = videoEmbed.data('src');
+                if (!src) {
+                    return;
+                }
+                const url = new URL(src, window.location.origin);
+                if (!url.searchParams.has('autoplay')) {
+                    url.searchParams.set('autoplay', '0');
+                }
+                if (url.hostname.includes('wistia')) {
+                    url.searchParams.set('autoPlay', '0');
+                }
+                const iframe = $('<iframe />', {
+                    src: url.toString(),
+                    allow: 'autoplay; fullscreen',
+                    allowfullscreen: true,
+                });
+                videoEmbed.append(iframe);
+                return;
+            }
+            if (provider === 'self') {
+                const src = videoEmbed.data('src');
+                if (!src) {
+                    return;
+                }
+                const video = $('<video />', {
+                    controls: true,
+                });
+                video.attr('src', src);
+                videoEmbed.append(video);
+            }
+        };
+
+        const clearVideoEmbed = () => {
+            if (videoEmbed.length) {
+                videoEmbed.empty();
+            }
+        };
 
         const updateRoomState = () => {
-            const now = Date.now();
+            const now = getNow().getTime();
             const start = slot;
             const end = slot + videoSeconds * 1000;
             const countdownEl = $('#aw-countdown');
@@ -107,10 +187,13 @@
 
             if (now < start) {
                 const diff = start - now;
-                const minutes = Math.floor(diff / 60000);
-                const seconds = Math.floor((diff % 60000) / 1000);
                 statusEl.text('Oczekiwanie na start webinaru');
-                countdownEl.text(`Start za ${minutes} min ${seconds} s`);
+                countdownEl.text(`Start za ${formatCountdown(diff)}`);
+                if (videoBefore === 'show') {
+                    buildVideoEmbed();
+                } else {
+                    clearVideoEmbed();
+                }
                 videoSection.toggle(videoBefore === 'show');
                 $('#aw-end-cta').hide();
                 chatSection.toggle(chatBefore === 'show');
@@ -122,6 +205,11 @@
             } else if (now >= start && now <= end) {
                 statusEl.text('Webinar trwa');
                 countdownEl.text('');
+                if (videoDuring === 'show') {
+                    buildVideoEmbed();
+                } else {
+                    clearVideoEmbed();
+                }
                 videoSection.toggle(videoDuring === 'show');
                 $('#aw-end-cta').hide();
                 chatSection.toggle(chatDuring === 'show');
@@ -129,6 +217,11 @@
             } else {
                 statusEl.text('Webinar zakończony');
                 countdownEl.text('');
+                if (videoAfter === 'show') {
+                    buildVideoEmbed();
+                } else {
+                    clearVideoEmbed();
+                }
                 videoSection.toggle(videoAfter === 'show');
                 changeEl.hide();
                 chatSection.toggle(chatAfter === 'show');
