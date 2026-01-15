@@ -377,6 +377,23 @@ class AW_Admin
                         <td><input type="url" id="cta_url" name="cta_url" value="<?php echo esc_attr($settings['cta_url'] ?? ''); ?>" class="regular-text" /></td>
                     </tr>
                     <tr>
+                        <th scope="row"><label for="cta_schedule_json">Harmonogram CTA (JSON)</label></th>
+                        <td>
+                            <textarea id="cta_schedule_json" name="cta_schedule_json" rows="5" class="large-text code"><?php echo esc_textarea($settings['cta_schedule_json'] ?? ''); ?></textarea>
+                            <p class="description">Lista CTA wg czasu od startu (sekundy). Przykład: [{"start":60,"end":300,"text":"Pobierz checklistę","url":"https://..."},{"start":720,"end":0,"text":"Umów rozmowę","url":"https://..."}].</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="cta_popup_enabled">Popup CTA</label></th>
+                        <td>
+                            <select id="cta_popup_enabled" name="cta_popup_enabled">
+                                <option value="yes" <?php selected(($settings['cta_popup_enabled'] ?? 'no'), 'yes'); ?>>Włączony</option>
+                                <option value="no" <?php selected(($settings['cta_popup_enabled'] ?? 'no'), 'no'); ?>>Wyłączony</option>
+                            </select>
+                            <p class="description">Delikatny popup CTA pojawia się zgodnie z harmonogramem i można go zamknąć.</p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="faq_lines">FAQ (słowo|odpowiedź)</label></th>
                         <td>
                             <textarea id="faq_lines" name="faq_lines" rows="6" class="large-text code"><?php echo esc_textarea($settings['faq_lines'] ?? ''); ?></textarea>
@@ -634,6 +651,8 @@ class AW_Admin
             'end_redirect_url' => esc_url_raw($raw['end_redirect_url'] ?? ''),
             'cta_text' => sanitize_text_field($raw['cta_text'] ?? ''),
             'cta_url' => esc_url_raw($raw['cta_url'] ?? ''),
+            'cta_schedule_json' => wp_kses_post($raw['cta_schedule_json'] ?? ''),
+            'cta_popup_enabled' => ($raw['cta_popup_enabled'] ?? 'no') === 'yes' ? 'yes' : 'no',
             'faq_lines' => sanitize_textarea_field($raw['faq_lines'] ?? ''),
         ];
 

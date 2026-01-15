@@ -108,6 +108,8 @@ class AW_Shortcodes
         $end_redirect_url = $settings['end_redirect_url'] ?? '';
         $cta_text = $settings['cta_text'] ?? 'Dołącz do oferty';
         $cta_url = $settings['cta_url'] ?? '';
+        $cta_schedule_json = $settings['cta_schedule_json'] ?? '';
+        $cta_popup_enabled = ($settings['cta_popup_enabled'] ?? 'no') === 'yes';
         $room_layout = $settings['room_layout'] ?? 'video_chat';
         $chat_before = $settings['chat_before'] ?? 'show';
         $chat_during = $settings['chat_during'] ?? 'show';
@@ -126,7 +128,7 @@ class AW_Shortcodes
 
         ob_start();
         ?>
-        <div class="aw-container aw-room aw-layout-<?php echo esc_attr($room_layout); ?> aw-chat-<?php echo esc_attr($chat_position); ?>" data-slot="<?php echo esc_attr((string)$slot_timestamp); ?>" data-video-seconds="<?php echo esc_attr((string)$video_seconds); ?>" data-end-action="<?php echo esc_attr($end_action); ?>" data-end-redirect="<?php echo esc_url($end_redirect_url); ?>" data-chat-before="<?php echo esc_attr($chat_before); ?>" data-chat-during="<?php echo esc_attr($chat_during); ?>" data-chat-after="<?php echo esc_attr($chat_after); ?>" data-video-before="<?php echo esc_attr($video_before); ?>" data-video-during="<?php echo esc_attr($video_during); ?>" data-video-after="<?php echo esc_attr($video_after); ?>">
+        <div class="aw-container aw-room aw-layout-<?php echo esc_attr($room_layout); ?> aw-chat-<?php echo esc_attr($chat_position); ?>" data-slot="<?php echo esc_attr((string)$slot_timestamp); ?>" data-video-seconds="<?php echo esc_attr((string)$video_seconds); ?>" data-end-action="<?php echo esc_attr($end_action); ?>" data-end-redirect="<?php echo esc_url($end_redirect_url); ?>" data-chat-before="<?php echo esc_attr($chat_before); ?>" data-chat-during="<?php echo esc_attr($chat_during); ?>" data-chat-after="<?php echo esc_attr($chat_after); ?>" data-video-before="<?php echo esc_attr($video_before); ?>" data-video-during="<?php echo esc_attr($video_during); ?>" data-video-after="<?php echo esc_attr($video_after); ?>" data-cta-schedule="<?php echo esc_attr($cta_schedule_json); ?>" data-cta-popup="<?php echo esc_attr($cta_popup_enabled ? 'yes' : 'no'); ?>">
             <h2>Pokój webinarowy</h2>
             <div class="aw-room-status" id="aw-room-status"></div>
             <div class="aw-countdown" id="aw-countdown"></div>
@@ -160,6 +162,15 @@ class AW_Shortcodes
                 <?php else : ?>
                     <a class="aw-button" href="<?php echo esc_url($end_redirect_url); ?>">Przejdź dalej</a>
                 <?php endif; ?>
+            </div>
+            <div class="aw-cta-inline" id="aw-cta-inline" style="display:none;">
+                <a class="aw-button" href="#" target="_blank" rel="noopener" id="aw-cta-inline-link"></a>
+            </div>
+            <div class="aw-cta-popup" id="aw-cta-popup" style="display:none;">
+                <div class="aw-cta-popup-content">
+                    <button type="button" class="aw-cta-popup-close" id="aw-cta-popup-close">×</button>
+                    <a class="aw-button" href="#" target="_blank" rel="noopener" id="aw-cta-popup-link"></a>
+                </div>
             </div>
             <input type="hidden" id="aw-room-token" value="<?php echo esc_attr($token); ?>" />
         </div>

@@ -243,6 +243,22 @@
         const deadlineEl = $('#aw-deadline');
         const roomToken = $('#aw-room-token').val() || 'global';
         const deadlineKey = `aw_deadline_${roomToken}`;
+        const ctaScheduleRaw = room.data('cta-schedule') || '';
+        const ctaPopupEnabled = room.data('cta-popup') === 'yes';
+        const ctaInline = $('#aw-cta-inline');
+        const ctaInlineLink = $('#aw-cta-inline-link');
+        const ctaPopup = $('#aw-cta-popup');
+        const ctaPopupLink = $('#aw-cta-popup-link');
+        const ctaPopupClose = $('#aw-cta-popup-close');
+        let ctaSchedule = [];
+
+        if (ctaScheduleRaw) {
+            try {
+                ctaSchedule = JSON.parse(ctaScheduleRaw);
+            } catch (e) {
+                ctaSchedule = [];
+            }
+        }
 
         const formatCountdown = (diffMs) => {
             const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
@@ -422,6 +438,7 @@
             }
 
             updateDeadlineCountdown();
+            updateTimedCta(now, start);
         };
 
         updateRoomState();
@@ -469,6 +486,60 @@
             action: 'aw_room_view',
             nonce: AWSettings.nonce,
             token: roomToken,
+        });
+
+        const updateTimedCta = (nowMs, startMs) => {
+            if (!ctaSchedule.length || nowMs < startMs) {
+                ctaInline.hide();
+                ctaPopup.hide();
+                return;
+            }
+            const elapsedSec = Math.floor((nowMs - startMs) / 1000);
+            const active = ctaSchedule.find((item) => {
+                const start = parseInt(item.start || 0, 10);
+                const end = parseInt(item.end || 0, 10);
+                if (end === 0) {
+                    return elapsedSec >= start;
+                }
+                return elapsedSec >= start && elapsedSec <= end;
+            });
+            if (!active || !active.url || !active.text) {
+                ctaInline.hide();
+                ctaPopup.hide();
+                return;
+            }
+            if (active.id) {
+                const closed = localStorage.getItem(`aw_cta_closed_${roomToken}_${active.id}`);
+                if (closed) {
+                    ctaPopup.hide();
+                }
+            }
+            ctaInlineLink.text(active.text).attr('href', active.url);
+            ctaInline.show();
+            if (ctaPopupEnabled) {
+                ctaPopupLink.text(active.text).attr('href', active.url);
+                ctaPopup.show();
+            } else {
+                ctaPopup.hide();
+            }
+        };
+
+        ctaPopupClose.on('click', () => {
+            const nowMs = getNow().getTime();
+            const startMs = slot;
+            const elapsedSec = Math.floor((nowMs - startMs) / 1000);
+            const active = ctaSchedule.find((item) => {
+                const start = parseInt(item.start || 0, 10);
+                const end = parseInt(item.end || 0, 10);
+                if (end === 0) {
+                    return elapsedSec >= start;
+                }
+                return elapsedSec >= start && elapsedSec <= end;
+            });
+            if (active?.id) {
+                localStorage.setItem(`aw_cta_closed_${roomToken}_${active.id}`, '1');
+            }
+            ctaPopup.hide();
         });
 
         const token = $('#aw-room-token').val();

@@ -243,3 +243,36 @@
 .aw-qa-form .aw-button {
     padding: 10px 18px;
 }
+
+.aw-cta-inline {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.aw-cta-popup {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 9999;
+    background: rgba(15, 15, 15, 0.95);
+    border: 1px solid rgba(243, 156, 18, 0.4);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    max-width: 320px;
+}
+
+.aw-cta-popup-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.aw-cta-popup-close {
+    align-self: flex-end;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+}
